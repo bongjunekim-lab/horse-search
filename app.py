@@ -7,13 +7,25 @@ from collections import defaultdict
 # 1. 페이지 설정
 st.set_page_config(page_title="엘리트 혈통 상세 시스템", layout="wide")
 
-# CSS를 이용해 파란색 텍스트 스타일 정의
+# CSS: 시각적 강조 스타일 유지
 st.markdown("""
     <style>
-    .blue-bold-text {
+    .elite-mare {
         color: #1E90FF !important;
         font-weight: bold;
-        font-size: 1.1em;
+        font-size: 1.2em;
+    }
+    .sire-title {
+        font-weight: bold;
+        font-size: 1.5em;
+        margin-bottom: 5px;
+        color: #333333;
+    }
+    /* 리스트 간격 조정 */
+    .progeny-item {
+        margin-left: 25px;
+        margin-bottom: 3px;
+        color: #555555;
     }
     </style>
     """, unsafe_allow_html=True)
@@ -24,10 +36,12 @@ def load_and_analyze_data():
     if not os.path.exists(file_path):
         return None, "파일을 찾을 수 없습니다."
 
-    tree = ET.parse(file_path)
-    root = tree.getroot()
+    try:
+        tree = ET.parse(file_path)
+        root = tree.getroot()
+    except Exception as e:
+        return None, f"파일 파싱 오류: {e}"
 
-    # ID 맵핑 (화살표 추적용)
     id_map = {}
     for node in root.iter('node'):
         nid = node.get('ID')
@@ -44,13 +58,11 @@ def load_and_analyze_data():
             birth_year = int(year_match.group(1)) if year_match else 0
             
             progeny = []
-            # 화살표 연결 자마
             for arrow in node.findall('arrowlink'):
                 dest_id = arrow.get('DESTINATION')
                 if dest_id in id_map:
                     progeny.append(f"🔗 [연결] {id_map[dest_id]}")
             
-            # 하위 가지 자마
             for child in node.findall('node'):
                 c_text = child.get('TEXT', '')
                 if c_text:
@@ -71,7 +83,7 @@ def load_and_analyze_data():
     return elite_sire_map, None
 
 # --- UI 메인 ---
-st.title("🐎 암말우성 씨수말 랭킹 & 자마 상세 추적")
+st.title("🐎 암말우성 씨수말 랭킹 (전체 펼침 모드)")
 
 password = st.text_input("접속 암호", type="password")
 if password != "3811":
@@ -79,11 +91,12 @@ if password != "3811":
     st.stop()
 
 elite_map, err = load_and_analyze_data()
-if err: st.error(err); st.stop()
+if err:
+    st.error(err)
+    st.stop()
 
 start_y, end_y = st.sidebar.slider("종빈마 출생 연도 설정", 1900, 2030, (1900, 2026))
 
-# 결과 정렬
 results = []
 for sire, daughters in elite_map.items():
     filtered = [d for d in daughters if start_y <= d['year'] <= end_y]
@@ -92,18 +105,21 @@ for sire, daughters in elite_map.items():
 
 results.sort(key=lambda x: len(x[1]), reverse=True)
 
-# 리스트 출력
-for i, (sire, daughters, total) in enumerate(results[:50], 1):
-    # 씨수말 폰트 2단계 키우고 굵게 (HTML 사용)
-    header_label = f"<h3 style='margin-bottom:0px;'>{i}위. {sire} (선택: {len(daughters)} / 누적: {total})</h3>"
-    with st.expander(f"더보기 클릭"):
-        st.markdown(header_label, unsafe_allow_html=True)
-        st.write("---")
-        for d in daughters:
-            # 엘리트 종빈마: 파란색, 폰트 1단계 키우기, 굵게
-            st.markdown(f"<span class='blue-bold-text'>⭐ {d['name']} ({d['year']}년생)</span>", unsafe_allow_html=True)
+if not results:
+    st.warning("선택한 연도 범위 내에 데이터가 없습니다.")
+else:
+    for i, (sire, daughters, total) in enumerate(results[:50], 1):
+        # [핵심] expanded=True 옵션을 넣어 처음부터 모두 펼쳐지게 함
+        expander_label = f"[{i}위] {sire} (기간내: {len(daughters)} / 누적: {total})"
+        
+        with st.expander(expander_label, expanded=True):
+            st.markdown(f"<div class='sire-title'>{i}위. {sire}</div>", unsafe_allow_html=True)
+            st.write("---")
             
-            if d['progeny']:
-                for p in d['progeny']:
-                    st.write(f"&nbsp;&nbsp;&nbsp;&nbsp;{p}")
-            st.write("") # 간격 조절
+            for d in daughters:
+                st.markdown(f"<div class='elite-mare'>⭐ {d['name']} ({d['year']}년생)</div>", unsafe_allow_html=True)
+                
+                if d['progeny']:
+                    for p in d['progeny']:
+                        st.markdown(f"<div class='progeny-item'>{p}</div>", unsafe_allow_html=True)
+                st.write("")
