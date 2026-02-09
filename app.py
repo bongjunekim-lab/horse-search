@@ -7,7 +7,7 @@ from collections import defaultdict
 # 1. 페이지 설정
 st.set_page_config(page_title="엘리트 혈통 추적 시스템", layout="wide")
 
-# CSS 설정: 종빈마는 파란색, 중복 부마(닉)만 적색 스타일
+# CSS 설정
 st.markdown("""
     <style>
     .elite-mare {
@@ -20,11 +20,11 @@ st.markdown("""
     .progeny-item {
         margin-left: 30px;
         margin-bottom: 2px;
-        color: #000000; /* 기본 검은색 */
+        color: #000000;
         font-size: 1.05em;
     }
     .nick-red {
-        color: #FF0000 !important; /* 중복된 경우만 적색 */
+        color: #FF0000 !important;
         font-weight: bold;
     }
     .hr-line {
@@ -45,9 +45,8 @@ def load_and_analyze_data():
         
         id_to_text = {}
         id_to_parent_text = {}
-        sire_count = defaultdict(int) # 부마 등장 횟수 카운트용
         
-        # 1차 조사: 부모-자식 관계 맵핑
+        # 1. 전수 조사: 모든 노드와 부모 관계 맵핑
         for parent in root.iter('node'):
             p_text = parent.get('TEXT', 'Unknown')
             for child in parent.findall('node'):
@@ -55,14 +54,6 @@ def load_and_analyze_data():
                 if c_id:
                     id_to_text[c_id] = child.get('TEXT', '')
                     id_to_parent_text[c_id] = p_text
-                    
-        # 2차 조사: 전체 화살표 연결에서 부마가 몇 번 나오는지 카운트
-        for node in root.iter('node'):
-            for arrow in node.findall('arrowlink'):
-                dest_id = arrow.get('DESTINATION')
-                if dest_id in id_to_parent_text:
-                    sire_name = id_to_parent_text[dest_id]
-                    sire_count[sire_name] += 1
 
         year_pattern = re.compile(r'(\d{4})')
         elite_sire_map = defaultdict(list)
@@ -73,25 +64,16 @@ def load_and_analyze_data():
                 year_match = year_pattern.search(my_text)
                 birth_year = int(year_match.group(1)) if year_match else 0
                 
-                progeny = []
+                progeny_info = [] # 자마 ID 저장용
                 for arrow in node.findall('arrowlink'):
                     dest_id = arrow.get('DESTINATION')
                     if dest_id in id_to_text:
-                        child_name = id_to_text[dest_id]
-                        sire_name = id_to_parent_text.get(dest_id, "정보 없음")
-                        
-                        # [핵심 로직] 등장 횟수가 2회 이상일 때만 적색 클래스 적용
-                        if sire_count[sire_name] >= 2:
-                            sire_display = f"<span class='nick-red'>{sire_name}</span>"
-                        else:
-                            sire_display = f"<b>{sire_name}</b>" # 1회 등장은 그냥 굵은 검은색
-                            
-                        progeny.append(f"🔗 [연결] {child_name} ({sire_display})")
+                        progeny_info.append(dest_id)
                 
                 mare_info = {
                     'name': my_text.strip(),
                     'year': birth_year,
-                    'progeny': progeny
+                    'progeny_ids': progeny_info # 자마 ID들만 먼저 저장
                 }
                 if parent_text != "Unknown":
                     elite_sire_map[parent_text.strip()].append(mare_info)
@@ -100,19 +82,19 @@ def load_and_analyze_data():
                 traverse(child, my_text)
 
         traverse(root)
-        return elite_sire_map, None
+        return elite_sire_map, id_to_text, id_to_parent_text, None
     except Exception as e:
-        return None, f"분석 오류: {str(e)}"
+        return None, None, None, f"분석 오류: {str(e)}"
 
 # --- UI 메인 ---
-st.title("🐎 암말우성 씨수말 랭킹 및 닉(Nick) 분석")
+st.title("🐎 암말우성 씨수말 랭킹 및 특정 조합(Nick) 분석")
 
 password = st.text_input("접속 암호를 입력하세요", type="password")
 if password != "5500":
     if password: st.error("암호 오류")
     st.stop()
 
-elite_map, err = load_and_analyze_data()
+elite_map, id_to_text, id_to_parent_text, err = load_and_analyze_data()
 if err:
     st.error(err); st.stop()
 
@@ -136,13 +118,28 @@ else:
         
         with st.expander(expander_title):
             st.markdown("<div class='hr-line'></div>", unsafe_allow_html=True)
+            
+            # [핵심 로직] 현재 씨수말(예: 33위) 안에서 부마 출현 횟수 계산
+            current_sire_counts = defaultdict(int)
             for d in daughters:
-                # 💎 종빈마는 파란색 유지
+                for p_id in d['progeny_ids']:
+                    s_name = id_to_parent_text.get(p_id, "정보 없음")
+                    current_sire_counts[s_name] += 1
+            
+            for d in daughters:
                 st.markdown(f"<div class='elite-mare'>💎 {d['name']}</div>", unsafe_allow_html=True)
                 
-                if d['progeny']:
-                    for p in d['progeny']:
-                        # 자마 및 부마 정보 출력 (중복 부마만 적색)
-                        st.markdown(f"<div class='progeny-item'>{p}</div>", unsafe_allow_html=True)
+                if d['progeny_ids']:
+                    for p_id in d['progeny_ids']:
+                        child_name = id_to_text.get(p_id, "")
+                        sire_name = id_to_parent_text.get(p_id, "정보 없음")
+                        
+                        # 현재 펼쳐진 씨수말의 자마들 중에서 2번 이상 나오면 적색
+                        if current_sire_counts[sire_name] >= 2:
+                            sire_display = f"<span class='nick-red'>{sire_name}</span>"
+                        else:
+                            sire_display = f"<b>{sire_name}</b>"
+                        
+                        st.markdown(f"<div class='progeny-item'>🔗 [연결] {child_name} ({sire_display})</div>", unsafe_allow_html=True)
                 else:
                     st.markdown("<div class='progeny-item' style='color:#999;'>- 연결된 화살표 자마 정보 없음</div>", unsafe_allow_html=True)
