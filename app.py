@@ -81,8 +81,9 @@ def load_and_analyze_data():
 # --- UI 메인 ---
 st.title("🐎 암말우성 씨수말 랭킹 및 혈통 추적")
 
+# [변경] 접속 암호 5500 설정
 password = st.text_input("접속 암호를 입력하세요", type="password")
-if password != "3811":
+if password != "5500":
     if password: st.error("암호 오류")
     st.stop()
 
@@ -92,7 +93,7 @@ if err:
     st.stop()
 
 # 사이드바 연도 설정
-start_y, end_y = st.sidebar.slider("종빈마 출생 연도 설정", 1900, 2030, (1900, 2026))
+start_y, end_y = st.sidebar.slider("종빈마 출생 연도 필터", 1900, 2030, (1900, 2026))
 
 results = []
 for sire, daughters in elite_map.items():
@@ -113,7 +114,6 @@ else:
         num_mares = len(daughters)
         stars = "⭐" * num_mares
         
-        # 상단 리스트 제목
         expander_title = f"[{i}위] {sire} (엘리트 종빈마: {num_mares}두) {stars}"
         
         with st.expander(expander_title):
@@ -121,8 +121,8 @@ else:
             st.markdown("<div class='hr-line'></div>", unsafe_allow_html=True)
             
             for d in daughters:
-                # [수정] '엘리트 종빈마:' 텍스트 삭제, 다이아몬드와 이름만 남김
-                st.markdown(f"<div class='elite-mare'>💎 {d['name']} ({d['year']}년생)</div>", unsafe_allow_html=True)
+                # [변경] 연도 표시 삭제, 다이아몬드와 마명만 노출
+                st.markdown(f"<div class='elite-mare'>💎 {d['name']}</div>", unsafe_allow_html=True)
                 
                 if d['progeny']:
                     for p in d['progeny']:
