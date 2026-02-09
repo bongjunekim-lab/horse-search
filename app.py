@@ -92,41 +92,49 @@ start_year, end_year = st.sidebar.slider(
 )
 
 st.divider() # 구분선
-# --- [엘리트 종빈마 자식 검색 기능] ---
+# --- [종빈마 자마 검색 기능: 최종 수정] ---
 st.divider()
-st.markdown("### 🐎 엘리트 종빈마 자식(자마) 검색")
-st.info("여기에 '암말(종빈마)' 이름을 넣으면, 그녀가 배출한 **엘리트 자식들**을 보여줍니다.")
+st.markdown("### 🐎 엘리트 종빈마 자마 검색")
+st.caption("찾고 싶은 종빈마(엄마)의 이름을 입력하면, 그 말의 선(Line)에 연결된 자식들을 보여줍니다.")
 
-# 1. 검색창
-mom_name = st.text_input("검색할 종빈마(엄마) 이름을 입력하세요", placeholder="예: Urban Sea, Hasili 등")
+# 1. 검색창 (변수명을 search_keyword로 통일하여 에러 방지)
+search_keyword = st.text_input("종빈마(엄마) 이름을 입력하세요", placeholder="예: Mariah's Storm")
 
-if mom_name:
-    st.markdown(f"#### 🔎 '{mom_name}'의 자마 검색 결과")
+if search_keyword:
+    st.markdown(f"#### 🔎 '{search_keyword}' 검색 결과")
     found_mom = False
     
-    # 2. 데이터(sire_map)에서 '엄마'로 등록된 이름 찾기
-    for parent_key, children_list in sire_map.items():
-        # 대소문자 상관없이 이름이 포함되어 있는지 확인
-        if mom_name.lower() in parent_key.lower():
+    # 2. 데이터 지도(sire_map)에서 '부모(Key)'로 등록된 이름을 찾습니다.
+    # (MindMap 파일에서 상위 노드에 해당합니다)
+    for parent_name, children_list in sire_map.items():
+        # 대소문자 구분 없이 이름이 포함되어 있는지 확인
+        if search_keyword.lower() in parent_name.lower():
             found_mom = True
             
-            # 3. 자식 목록 출력
+            # 3. 찾은 엄마의 자식 목록 출력
             with st.container():
-                st.success(f"✅ **[{parent_key}]** 종빈마가 배출한 엘리트 자마: 총 {len(children_list)}두")
+                st.success(f"✅ **[{parent_name}]** (이)가 배출한 자마 목록")
                 
-                # 자식들을 태어난 연도순으로 정렬해서 보여주기
+                # 자식들을 태어난 연도순으로 정렬
                 sorted_children = sorted(children_list, key=lambda x: x['year'])
                 
-                for child in sorted_children:
-                    # 화면에 깔끔하게 출력
-                    st.write(f"- 🐎 **{child['name']}** ({child['year']}년생)")
+                if len(sorted_children) > 0:
+                    for child in sorted_children:
+                        st.write(f"- 🐎 **{child['name']}** ({child['year']}년생)")
+                else:
+                    st.info("이 종빈마의 이름은 확인되지만, 연결된 자마 데이터가 없습니다.")
             
-            st.divider() # 구분선
+            st.divider() # 결과 간 구분선
 
-    # 4. 검색 결과가 없을 때 (자식이 없는 경우)
+    # 4. 검색 결과가 아예 없을 때
     if not found_mom:
-        st.error("검색된 종빈마가 없습니다.")
-        st.warning(f"💡 힌트: '{mom_name}'이(가) 데이터 파일에 '부모(상위 폴더)'로 등록되어 있지 않거나, 배출한 자식 중 '엘리트(@)' 등급이 없을 수도 있습니다.")
+        st.warning("검색된 종빈마가 없습니다.")
+        st.markdown("""
+        **💡 검색이 안 되는 이유가 뭔가요?**
+        1. **철자 확인:** 띄어쓰기나 철자가 정확한지 확인해 주세요.
+        2. **데이터 조건:** 현재 프로그램은 **'@(골뱅이)' 표시가 있는 엘리트 자마**만 저장하도록 설정되어 있습니다. 
+           만약 자식들이 엘리트 등급(@)이 아니라면, 엄마 이름으로 검색해도 나오지 않을 수 있습니다.
+        """)
 
 # ----------------------------------------------------
     # 2. [참고] 이 말의 '아빠' 찾기 (Daughter Search)
@@ -189,6 +197,7 @@ else:
                 # 리스트 형태로 출력
 
                 st.text(f"  - [{mare['year']}년생] {mare['name']}")
+
 
 
 
