@@ -8,7 +8,7 @@ from collections import defaultdict
 st.set_page_config(page_title="엘리트 혈통 추적 시스템", layout="wide")
 
 # CSS 설정
-# top-progeny (보라색): G1 7승 이상 (최우선, 수말 성격)
+# top-progeny (보라색): G1 7승 이상 (최우선)
 # elite-daughter (진한 파란색): 번식 우수 암말 (@, #)
 st.markdown("""
     <style>
@@ -26,7 +26,7 @@ st.markdown("""
         font-size: 1.05em;
     }
     .top-progeny {
-        color: #9400D3 !important; /* 보라색 (DarkViolet) - G1 우수마 (수말 등) */
+        color: #9400D3 !important; /* 보라색 (DarkViolet) - G1 우수마 */
         font-weight: bold;
     }
     .elite-daughter {
@@ -148,24 +148,30 @@ else:
                         child_name = id_to_text.get(p_id, "")
                         father_name = id_to_parent_text.get(p_id, "정보 없음")
                         
-                        # --- [수정된 로직: 보라색 최우선] ---
+                        # --- [자마 이름 표시 로직] ---
                         
                         child_display = child_name
                         
-                        # 1. G1 성적 확인 (보라색)
+                        # 1. G1 성적 확인 (보라색 조건 - 최우선)
                         g1_match = g1_pattern.search(child_name)
                         is_high_g1 = g1_match and int(g1_match.group(1)) >= 7
                         
-                        # 2. 번식 우수 딸 확인 (진한 파란색)
-                        # '암)'이 포함되고 동시에 '@' 또는 '#'이 있는 경우
-                        is_elite_daughter = ('암)' in child_name) and (('@' in child_name) or ('#' in child_name))
+                        # 2. 번식 우수 딸 확인 (진한 파란색 조건)
+                        # 조건: '암)' 글자가 있어야 하고, 그 '앞부분'에 @ 또는 #이 있어야 함
+                        is_elite_daughter = False
+                        if '암)' in child_name:
+                            # '암)'을 기준으로 문장을 자름
+                            parts = child_name.split('암)')
+                            prefix = parts[0] # 앞부분만 가져옴
+                            if ('@' in prefix) or ('#' in prefix):
+                                is_elite_daughter = True
                         
-                        # [중요] 우선순위 적용: 
-                        # 1순위: G1 7승 이상이면 무조건 보라색 (건들지 않음)
+                        # [우선순위 적용]
                         if is_high_g1:
+                            # 1순위: G1 7승 이상 -> 보라색 굵게 (변경 없음)
                             child_display = f"<span class='top-progeny'>{child_name}</span>"
-                        # 2순위: 보라색이 아니고, 번식 우수 딸인 경우 진한 파란색
                         elif is_elite_daughter:
+                            # 2순위: G1 조건 아님 + 번식 우수 딸(@/# 암) -> 진한 파란색 굵게
                             child_display = f"<span class='elite-daughter'>{child_name}</span>"
                         
                         # --- [로직 끝] ---
