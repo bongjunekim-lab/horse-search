@@ -7,7 +7,7 @@ from collections import defaultdict
 # 1. 페이지 설정
 st.set_page_config(page_title="엘리트 혈통 추적 시스템", layout="wide")
 
-# CSS 설정: 종빈마 파란색 강조 및 스타일
+# CSS 설정
 st.markdown("""
     <style>
     .elite-mare {
@@ -56,7 +56,6 @@ def load_and_analyze_data():
                 birth_year = int(year_match.group(1)) if year_match else 0
                 
                 progeny = []
-                # 화살표 연결(arrowlink)만 추출
                 for arrow in node.findall('arrowlink'):
                     dest_id = arrow.get('DESTINATION')
                     if dest_id in id_map:
@@ -81,7 +80,6 @@ def load_and_analyze_data():
 # --- UI 메인 ---
 st.title("🐎 암말우성 씨수말 랭킹 및 혈통 추적")
 
-# [변경] 접속 암호 5500 설정
 password = st.text_input("접속 암호를 입력하세요", type="password")
 if password != "5500":
     if password: st.error("암호 오류")
@@ -89,10 +87,8 @@ if password != "5500":
 
 elite_map, err = load_and_analyze_data()
 if err:
-    st.error(err)
-    st.stop()
+    st.error(err); st.stop()
 
-# 사이드바 연도 설정
 start_y, end_y = st.sidebar.slider("종빈마 출생 연도 필터", 1900, 2030, (1900, 2026))
 
 results = []
@@ -101,7 +97,6 @@ for sire, daughters in elite_map.items():
     if filtered:
         results.append((sire, filtered, len(daughters)))
 
-# 랭킹순 정렬
 results.sort(key=lambda x: len(x[1]), reverse=True)
 
 # --- 결과 출력 ---
@@ -114,14 +109,15 @@ else:
         num_mares = len(daughters)
         stars = "⭐" * num_mares
         
+        # 리스트 제목에만 정보를 집중하고 상세 내용은 더 깔끔하게 구성
         expander_title = f"[{i}위] {sire} (엘리트 종빈마: {num_mares}두) {stars}"
         
         with st.expander(expander_title):
-            st.markdown(f"#### 🏆 {sire} (전체 누적: {total}두)")
+            # 중복된 텍스트를 제거하고 구분선만 깔끔하게 배치
             st.markdown("<div class='hr-line'></div>", unsafe_allow_html=True)
             
             for d in daughters:
-                # [변경] 연도 표시 삭제, 다이아몬드와 마명만 노출
+                # 다이아몬드 + 마명만 노출
                 st.markdown(f"<div class='elite-mare'>💎 {d['name']}</div>", unsafe_allow_html=True)
                 
                 if d['progeny']:
