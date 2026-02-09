@@ -27,6 +27,11 @@ st.markdown("""
         margin: 10px 0;
         border-bottom: 1px solid #ddd;
     }
+    .star-rating {
+        color: #FFD700; /* 금색 별 */
+        font-size: 0.9em;
+        margin-left: 5px;
+    }
     </style>
     """, unsafe_allow_html=True)
 
@@ -39,7 +44,6 @@ def load_and_analyze_data():
         tree = ET.parse(file_path)
         root = tree.getroot()
         
-        # ID 맵핑 (화살표 추적용)
         id_map = {}
         for node in root.iter('node'):
             nid = node.get('ID')
@@ -56,7 +60,7 @@ def load_and_analyze_data():
                 birth_year = int(year_match.group(1)) if year_match else 0
                 
                 progeny = []
-                # [수정] 화살표 연결(arrowlink)만 추출하고, 일반 하위 노드(가지)는 무시함
+                # 화살표 연결(arrowlink)만 추출
                 for arrow in node.findall('arrowlink'):
                     dest_id = arrow.get('DESTINATION')
                     if dest_id in id_map:
@@ -108,17 +112,20 @@ else:
     st.write(f"현재 총 **{len(results)}두**의 씨수말이 검색되었습니다.")
     
     for i, (sire, daughters, total) in enumerate(results[:100], 1):
-        expander_title = f"[{i}위] {sire} (엘리트 종빈마: {len(daughters)}두)"
+        # [추가] 종빈마 두수만큼 별 생성 (최대 10개로 제한하여 레이아웃 깨짐 방지)
+        num_stars = len(daughters)
+        stars = "⭐" * num_stars
+        
+        # Expander 제목에 별 추가
+        expander_title = f"[{i}위] {sire} (엘리트: {num_stars}두) {stars}"
         
         with st.expander(expander_title):
             st.markdown(f"#### 🏆 {sire} (전체 누적: {total}두)")
             st.markdown("<div class='hr-line'></div>", unsafe_allow_html=True)
             
             for d in daughters:
-                # 엘리트 종빈마 표시
                 st.markdown(f"<div class='elite-mare'>⭐ {d['name']} ({d['year']}년생)</div>", unsafe_allow_html=True)
                 
-                # [수정] 화살표로 연결된 자마만 표시
                 if d['progeny']:
                     for p in d['progeny']:
                         st.markdown(f"<div class='progeny-item'>{p}</div>", unsafe_allow_html=True)
