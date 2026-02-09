@@ -7,7 +7,7 @@ from collections import defaultdict
 # 1. 페이지 설정
 st.set_page_config(page_title="엘리트 혈통 추적 시스템", layout="wide")
 
-# CSS 설정: 종빈마 파란색, 닉 적색, G1 우수 자마(G1-7 이상) 보라색
+# CSS 설정: 종빈마 파란색, 닉 적색, G1 우수 자마(G1-5 이상) 보라색
 st.markdown("""
     <style>
     .elite-mare {
@@ -157,3 +157,4 @@ else:
                         st.markdown(f"<div class='progeny-item'>🔗 [연결] {child_display} ({father_display})</div>", unsafe_allow_html=True)
                 else:
                     st.markdown("<div class='progeny-item' style='color:#999;'>- 연결된 화살표 자마 정보 없음</div>", unsafe_allow_html=True)
+
