@@ -30,15 +30,25 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-@st.cache_data
+# 데이터 로딩 함수 (에러 방지 강화)
 def load_and_analyze_data():
     file_path = '우수한 경주마(수말, 암말).mm'
+    
+    # [체크 1] 파일 존재 여부 확인
     if not os.path.exists(file_path):
-        return None, "파일을 찾을 수 없습니다."
+        return None, f"파일을 찾을 수 없습니다. (파일명: {file_path})"
 
     try:
-        tree = ET.parse(file_path)
-        root = tree.getroot()
+        # [체크 2] 파일 크기 확인 (0바이트 방지)
+        if os.path.getsize(file_path) == 0:
+            return None, "파일 내용이 비어 있습니다. (0 bytes)"
+
+        # [체크 3] 파일 읽기 시도
+        with open(file_path, 'r', encoding='utf-8') as f:
+            xml_content = f.read()
+        
+        # [체크 4] XML 파싱
+        root = ET.fromstring(xml_content)
         
         id_map = {}
         for node in root.iter('node'):
@@ -74,21 +84,30 @@ def load_and_analyze_data():
 
         traverse(root)
         return elite_sire_map, None
+        
+    except ET.ParseError:
+        return None, "XML 형식이 올바르지 않습니다. (.mm 파일이 맞는지 확인해주세요)"
     except Exception as e:
-        return None, f"분석 오류: {str(e)}"
+        return None, f"분석 중 오류 발생: {str(e)}"
 
 # --- UI 메인 ---
 st.title("🐎 암말우성 씨수말 랭킹 및 혈통 추적")
 
+# 접속 암호 5500
 password = st.text_input("접속 암호를 입력하세요", type="password")
 if password != "5500":
     if password: st.error("암호 오류")
     st.stop()
 
+# 데이터 불러오기 (캐시 문제 방지를 위해 일반 호출)
 elite_map, err = load_and_analyze_data()
-if err:
-    st.error(err); st.stop()
 
+if err:
+    st.error(f"❌ {err}")
+    st.info("💡 팁: GitHub 리포지토리에 '우수한 경주마(수말, 암말).mm' 파일이 실제로 업로드되어 있는지 확인해 주세요.")
+    st.stop()
+
+# 사이드바 연도 필터
 start_y, end_y = st.sidebar.slider("종빈마 출생 연도 필터", 1900, 2030, (1900, 2026))
 
 results = []
@@ -108,18 +127,12 @@ else:
     for i, (sire, daughters, total) in enumerate(results[:100], 1):
         num_mares = len(daughters)
         stars = "⭐" * num_mares
-        
-        # 리스트 제목에만 정보를 집중하고 상세 내용은 더 깔끔하게 구성
         expander_title = f"[{i}위] {sire} (엘리트 종빈마: {num_mares}두) {stars}"
         
         with st.expander(expander_title):
-            # 중복된 텍스트를 제거하고 구분선만 깔끔하게 배치
             st.markdown("<div class='hr-line'></div>", unsafe_allow_html=True)
-            
             for d in daughters:
-                # 다이아몬드 + 마명만 노출
                 st.markdown(f"<div class='elite-mare'>💎 {d['name']}</div>", unsafe_allow_html=True)
-                
                 if d['progeny']:
                     for p in d['progeny']:
                         st.markdown(f"<div class='progeny-item'>{p}</div>", unsafe_allow_html=True)
