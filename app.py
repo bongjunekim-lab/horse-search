@@ -53,7 +53,7 @@ st.title("🐎 암말우성 씨수말 & 종빈마 통합 검색")
 
 # 암호 확인
 password = st.text_input("접속 암호를 입력하세요", type="password")
-if password != "3811":
+if password != "5500":
     if password:
         st.error("암호가 틀렸습니다.")
     st.stop()
@@ -122,3 +122,4 @@ if sorted_results:
                 st.write(f"- {d['name']} ({d['year']}년생)")
 else:
     st.warning("선택하신 기간에 해당하는 데이터가 없습니다.")
+
