@@ -1,4 +1,10 @@
 import streamlit as st
+# --- 비밀번호 기능 시작 ---
+password = st.text_input("접속 암호를 입력하세요", type="password")
+if password != "1234":  # "3811"를 원하는 비밀번호로 바꾸세요
+    st.warning("암호가 틀렸습니다. 올바른 암호를 입력해야 보입니다.")
+    st.stop()
+# --- 비밀번호 기능 끝 ---
 import xml.etree.ElementTree as ET
 import re
 import os
@@ -133,3 +139,4 @@ else:
                 # 리스트 형태로 출력
 
                 st.text(f"  - [{mare['year']}년생] {mare['name']}")
+
