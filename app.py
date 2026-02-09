@@ -62,9 +62,9 @@ def load_and_analyze_data():
                 'is_elite': is_elite
             }
             
-            # 엘리트 암말이고, 아빠가 있는 경우에만 저장
-         if is_elite and parent_clean and parent_clean != "Unknown":
-                merged_sire_map[parent_clean].append(mare_info)
+           # (수정됨) 부모 이름만 있으면 무조건 저장!
+        if parent_clean and parent_clean != "Unknown":
+            merged_sire_map[parent_clean].append(mare_info)
         
         # 자식 노드로 이동 (현재 말을 부모로 전달)
         for child in node:
@@ -197,6 +197,7 @@ else:
                 # 리스트 형태로 출력
 
                 st.text(f"  - [{mare['year']}년생] {mare['name']}")
+
 
 
 
