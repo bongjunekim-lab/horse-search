@@ -1,97 +1,247 @@
 import streamlit as st
+
 import xml.etree.ElementTree as ET
+
 import re
+
 import os
+
 from collections import defaultdict
 
+
+
 # 1. 페이지 설정
+
 st.set_page_config(page_title="엘리트 혈통 검색기", layout="wide")
 
-# 2. 데이터 분석 (잘 나오던 그 로직 그대로!)
+
+
+# 2. 데이터 로딩 및 분석 함수
+
 @st.cache_data
+
 def load_and_analyze_data():
+
     file_path = '우수한 경주마(수말, 암말).mm'
+
     if not os.path.exists(file_path):
-        return None, None, f"파일을 찾을 수 없습니다."
+
+        return None, f"파일을 찾을 수 없습니다: {file_path}"
+
+
 
     try:
+
         tree = ET.parse(file_path)
+
         root = tree.getroot()
+
     except Exception as e:
-        return None, None, f"파일 오류: {e}"
+
+        return None, f"파일 로딩 오류: {e}"
+
+
 
     year_pattern = re.compile(r'(\d{4})')
+
+    # 엘리트(@) 전용 맵과 검색용 전체 맵 분리
+
     elite_sire_map = defaultdict(list)
-    branch_map = {} # 가지로 연결된 자식들 저장소
+
+    full_search_map = defaultdict(list)
+
+
 
     def traverse(node, parent_text="Unknown"):
+
         my_text = node.get('TEXT', '')
-        if not my_text: return
-        
-        my_clean = my_text.strip()
+
         parent_clean = parent_text.strip()
 
-        # [핵심] 현재 노드 바로 아래 연결된 자식들 발췌
-        direct_children = []
-        for child in node:
-            c_text = child.get('TEXT', '')
-            if c_text:
-                direct_children.append(c_text.strip())
-        branch_map[my_clean] = direct_children
 
-        # 엘리트(@) 및 연도 추출
-        year_match = year_pattern.search(my_clean)
-        birth_year = int(year_match.group(1)) if year_match else 0
-        is_elite = '@' in my_clean
 
-        if is_elite and parent_clean != "Unknown":
-            elite_sire_map[parent_clean].append({'name': my_clean, 'year': birth_year})
+        if my_text:
+
+            year_match = year_pattern.search(my_text)
+
+            birth_year = int(year_match.group(1)) if year_match else 0
+
+            is_elite = '@' in my_text
+
+
+
+            mare_info = {
+
+                'name': my_text.strip(),
+
+                'year': birth_year,
+
+                'is_elite': is_elite
+
+            }
+
+
+
+            if parent_clean and parent_clean != "Unknown":
+
+                # [A] 종빈마 검색용: 모든 말을 저장
+
+                full_search_map[parent_clean].append(mare_info)
+
+                
+
+                # [B] 랭킹 집계용: 오직 이름에 '@'가 있는 엘리트 자마만 저장
+
+                if is_elite:
+
+                    elite_sire_map[parent_clean].append(mare_info)
+
         
+
         for child in node:
-            traverse(child, parent_text=my_clean)
+
+            traverse(child, parent_text=my_text)
+
+
 
     traverse(root)
-    return elite_sire_map, branch_map, None
 
-# --- 화면 구성 ---
-st.title("📊 엘리트 씨수말 랭킹 및 자마 비교")
+    return elite_sire_map, full_search_map, None
 
-elite_map, branch_map, error = load_and_analyze_data()
-if error:
-    st.error(error)
+
+
+# --- 메인 화면 시작 ---
+
+st.title("🐎 암말우성 씨수말 & 종빈마 통합 검색")
+
+
+
+# [보안] 암호 확인
+
+password = st.text_input("접속 암호를 입력하세요", type="password")
+
+if password != "3811":
+
+    if password:
+
+        st.error("암호가 틀렸습니다.")
+
     st.stop()
 
-# 사이드바 연도 필터
-start_y, end_y = st.sidebar.slider("연도 범위:", 1900, 2026, (1900, 2026))
 
-# 랭킹 정렬
-sorted_list = []
-for sire, daughters in elite_map.items():
-    filtered = [d for d in daughters if start_y <= d['year'] <= end_y]
+
+# 데이터 불러오기
+
+elite_map, full_map, error_message = load_and_analyze_data()
+
+if error_message:
+
+    st.error(f"❌ {error_message}")
+
+    st.stop()
+
+
+
+# 사이드바 설정
+
+st.sidebar.header("🔍 기간 설정")
+
+start_year, end_year = st.sidebar.slider(
+
+    "자마의 태어난 연도를 선택하세요:",
+
+    min_value=1900, max_value=2030,
+
+    value=(1900, 2026)
+
+)
+
+
+
+# --- [기능 1: 종빈마 자마 검색] ---
+
+st.markdown("### 🔍 종빈마 이름으로 자마(자식) 찾기")
+
+search_keyword = st.text_input("종빈마 이름을 입력하세요", placeholder="예: Mariah's Storm, Buy The Cat")
+
+
+
+if search_keyword:
+
+    st.markdown(f"#### 🔎 '{search_keyword}' 검색 결과")
+
+    found_mom = False
+
+    for parent_name, children_list in full_map.items():
+
+        if search_keyword.lower() in parent_name.lower():
+
+            found_mom = True
+
+            with st.container():
+
+                st.success(f"✅ **[{parent_name}]** 종빈마의 배출 자마 목록")
+
+                for child in sorted(children_list, key=lambda x: x['year']):
+
+                    icon = "⭐" if child['is_elite'] else "🐎"
+
+                    st.write(f"- {icon} **{child['name']}** ({child['year']}년생)")
+
+            st.divider()
+
+    if not found_mom:
+
+        st.warning(f"❌ '{search_keyword}' 데이터를 찾을 수 없습니다.")
+
+
+
+# --- [기능 2: 엘리트 씨수말 랭킹 (복구 핵심!)] ---
+
+st.divider()
+
+st.markdown("### 📊 연도별 엘리트 씨수말 랭킹 (Broodmare Sire)")
+
+st.caption("※ 오직 이름에 '@'가 포함된 엘리트 종빈마만 집계합니다.")
+
+
+
+sorted_results = []
+
+for sire_name, daughters in elite_map.items():
+
+    # 필터링: 기간 내에 태어난 '엘리트' 자마들만
+
+    filtered = [d for d in daughters if start_year <= d['year'] <= end_year]
+
     if filtered:
-        sorted_list.append((sire, filtered, len(daughters)))
 
-sorted_list.sort(key=lambda x: len(x[1]), reverse=True)
+        # (씨수말 이름, 기간내 엘리트 수, 전체 엘리트 수) 저장
 
-# 결과 출력
-for i, (sire, daughters, total) in enumerate(sorted_list[:50], 1):
-    stars = "⭐" * min(len(daughters), 10)
-    with st.expander(f"[{i}위] {sire} (기간 내 @: {len(daughters)}두) {stars}"):
-        st.write("엘리트 딸 옆의 체크박스를 누르면 자마가 나타납니다.")
-        for idx, d in enumerate(daughters):
-            col1, col2 = st.columns([0.1, 0.9])
-            # 체크박스 추가
-            is_checked = col1.checkbox("", key=f"c_{i}_{idx}")
-            col2.write(f"⭐ **{d['name']}** ({d['year']}년생)")
-            
-            # 체크 시 가지연결 자마 노출
-            if is_checked:
-                kids = branch_map.get(d['name'], [])
-                if kids:
-                    with st.container(border=True):
-                        k_cols = st.columns(3)
-                        for k_idx, k_name in enumerate(kids):
-                            k_cols[k_idx % 3].write(f"- {k_name}")
-                else:
-                    st.caption("연결된 하부 데이터가 없습니다.")
-    st.divider()
+        sorted_results.append((sire_name, filtered, len(daughters)))
+
+
+
+# 기간 내 엘리트 자마가 많은 순으로 정렬
+
+sorted_results.sort(key=lambda x: len(x[1]), reverse=True)
+
+
+
+if sorted_results:
+
+    st.info(f"✅ 총 {len(sorted_results)}두의 엘리트 배출 씨수말이 검색되었습니다.")
+
+    for i, (sire_name, daughters, total_count) in enumerate(sorted_results[:50], 1):
+
+        stars = "⭐" * min(len(daughters), 10)
+
+        # 이제 (전체: 170두)가 아니라 실제 @ 개수인 (전체: 8두) 형식으로 나옵니다.
+
+        with st.expander(f"[{i}위] {sire_name} (기간 내: {len(daughters)}두 / 전체 엘리트: {total_count}두) {stars}"):
+
+            for d in daughters:
+
+                st.write(f"- ⭐ {d['name']} ({d['year']}년생)")
+
+else:
