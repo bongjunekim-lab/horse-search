@@ -5,72 +5,78 @@ import os
 from collections import defaultdict
 
 # 1. 페이지 설정
-st.set_page_config(page_title="엘리트 혈통 검색기", layout="wide")
+st.set_page_config(page_title="엘리트 혈통 비교기", layout="wide")
 
-# 2. 데이터 로딩 및 분석 함수
+# 2. 데이터 로딩 및 분석 함수 (계층 구조 분석 포함)
 @st.cache_data
 def load_and_analyze_data():
     file_path = '우수한 경주마(수말, 암말).mm'
     if not os.path.exists(file_path):
-        return None, f"파일을 찾을 수 없습니다: {file_path}"
+        return None, None, f"파일을 찾을 수 없습니다: {file_path}"
 
     try:
         tree = ET.parse(file_path)
         root = tree.getroot()
     except Exception as e:
-        return None, f"파일 로딩 오류: {e}"
+        return None, None, f"파일 로딩 오류: {e}"
 
     year_pattern = re.compile(r'(\d{4})')
-    # 엘리트(@) 전용 맵과 검색용 전체 맵 분리
-    elite_sire_map = defaultdict(list)
-    full_search_map = defaultdict(list)
+    
+    # [데이터 저장소]
+    elite_sire_map = defaultdict(list) # 랭킹용 (씨수말 -> 엘리트 자마 정보 리스트)
+    node_children_map = {}            # 가지연결용 (부모노드TEXT -> 자식노드TEXT 리스트)
 
     def traverse(node, parent_text="Unknown"):
         my_text = node.get('TEXT', '')
-        parent_clean = parent_text.strip()
-
-        if my_text:
-            year_match = year_pattern.search(my_text)
-            birth_year = int(year_match.group(1)) if year_match else 0
-            is_elite = '@' in my_text
-
-            mare_info = {
-                'name': my_text.strip(),
-                'year': birth_year,
-                'is_elite': is_elite
-            }
-
-            if parent_clean and parent_clean != "Unknown":
-                # [A] 종빈마 검색용: 모든 말을 저장
-                full_search_map[parent_clean].append(mare_info)
-                
-                # [B] 랭킹 집계용: 오직 이름에 '@'가 있는 엘리트 자마만 저장
-                if is_elite:
-                    elite_sire_map[parent_clean].append(mare_info)
+        if not my_text: return
         
+        my_clean = my_text.strip()
+        parent_clean = parent_text.strip()
+        
+        # 정보 분석
+        year_match = year_pattern.search(my_clean)
+        birth_year = int(year_match.group(1)) if year_match else 0
+        is_elite = '@' in my_clean
+
+        # 자식들 텍스트 수집 (가지연결 추출 핵심)
+        direct_children = []
         for child in node:
-            traverse(child, parent_text=my_text)
+            child_text = child.get('TEXT', '')
+            if child_text:
+                direct_children.append(child_text.strip())
+        
+        # 현재 노드의 가지연결 정보 저장
+        node_children_map[my_clean] = direct_children
+
+        # 랭킹 집계: @ 표시가 있는 말만 씨수말 실적으로 저장
+        if is_elite and parent_clean != "Unknown":
+            elite_sire_map[parent_clean].append({
+                'name': my_clean,
+                'year': birth_year
+            })
+
+        for child in node:
+            traverse(child, parent_text=my_clean)
 
     traverse(root)
-    return elite_sire_map, full_search_map, None
+    return elite_sire_map, node_children_map, None
 
 # --- 메인 화면 시작 ---
-st.title("🐎 암말우성 씨수말 & 종빈마 통합 검색")
+st.title("🐎 엘리트 종빈마 자마 비교 (가지연결 방식)")
 
 # [보안] 암호 확인
 password = st.text_input("접속 암호를 입력하세요", type="password")
 if password != "3811":
-    if password:
-        st.error("암호가 틀렸습니다.")
+    if password: st.error("암호가 틀렸습니다.")
     st.stop()
 
 # 데이터 불러오기
-elite_map, full_map, error_message = load_and_analyze_data()
+elite_map, children_map, error_message = load_and_analyze_data()
 if error_message:
     st.error(f"❌ {error_message}")
     st.stop()
 
-# 사이드바 설정
+# 사이드바: 기간 설정
 st.sidebar.header("🔍 기간 설정")
 start_year, end_year = st.sidebar.slider(
     "자마의 태어난 연도를 선택하세요:",
@@ -78,52 +84,49 @@ start_year, end_year = st.sidebar.slider(
     value=(1900, 2026)
 )
 
-# --- [기능 1: 종빈마 자마 검색] ---
-st.markdown("### 🔍 종빈마 이름으로 자마(자식) 찾기")
-search_keyword = st.text_input("종빈마 이름을 입력하세요", placeholder="예: Mariah's Storm, Buy The Cat")
-
-if search_keyword:
-    st.markdown(f"#### 🔎 '{search_keyword}' 검색 결과")
-    found_mom = False
-    for parent_name, children_list in full_map.items():
-        if search_keyword.lower() in parent_name.lower():
-            found_mom = True
-            with st.container():
-                st.success(f"✅ **[{parent_name}]** 종빈마의 배출 자마 목록")
-                for child in sorted(children_list, key=lambda x: x['year']):
-                    icon = "⭐" if child['is_elite'] else "🐎"
-                    st.write(f"- {icon} **{child['name']}** ({child['year']}년생)")
-            st.divider()
-    if not found_mom:
-        st.warning(f"❌ '{search_keyword}' 데이터를 찾을 수 없습니다.")
-
-# --- [기능 2: 엘리트 씨수말 랭킹 (복구 핵심!)] ---
-st.divider()
-st.markdown("### 📊 연도별 엘리트 씨수말 랭킹 (Broodmare Sire)")
-st.caption("※ 오직 이름에 '@'가 포함된 엘리트 종빈마만 집계합니다.")
+# --- [기능: 엘리트 씨수말 랭킹 및 체크박스 비교] ---
+st.markdown("### 📊 엘리트 씨수말 랭킹 및 가지연결 자마 추출")
+st.caption("씨수말 옆의 체크박스를 선택하면, 해당 엘리트 종빈마(@)로부터 '가지로 직접 연결된' 자마들만 정확히 추출합니다.")
 
 sorted_results = []
 for sire_name, daughters in elite_map.items():
-    # 필터링: 기간 내에 태어난 '엘리트' 자마들만
     filtered = [d for d in daughters if start_year <= d['year'] <= end_year]
     if filtered:
-        # (씨수말 이름, 기간내 엘리트 수, 전체 엘리트 수) 저장
         sorted_results.append((sire_name, filtered, len(daughters)))
 
-# 기간 내 엘리트 자마가 많은 순으로 정렬
 sorted_results.sort(key=lambda x: len(x[1]), reverse=True)
 
-if sorted_results:
-    st.info(f"✅ 총 {len(sorted_results)}두의 엘리트 배출 씨수말이 검색되었습니다.")
-    for i, (sire_name, daughters, total_count) in enumerate(sorted_results[:50], 1):
-        stars = "⭐" * min(len(daughters), 10)
-        # 이제 (전체: 170두)가 아니라 실제 @ 개수인 (전체: 8두) 형식으로 나옵니다.
-        with st.expander(f"[{i}위] {sire_name} (기간 내: {len(daughters)}두 / 전체 엘리트: {total_count}두) {stars}"):
-            for d in daughters:
-                st.write(f"- ⭐ {d['name']} ({d['year']}년생)")
+if not sorted_results:
+    st.warning("조건에 맞는 데이터가 없습니다.")
 else:
-    st.warning("해당 조건에 맞는 엘리트 데이터가 없습니다.")
-
-
-
+    for i, (sire_name, daughters, total_count) in enumerate(sorted_results[:50], 1):
+        # 랭킹 한 줄 레이아웃 (체크박스 + 순위 정보)
+        cols = st.columns([0.05, 0.95])
+        
+        # 고유 키 생성
+        chk_key = f"chk_{i}_{sire_name}"
+        is_selected = cols[0].checkbox("", key=chk_key)
+        
+        with cols[1]:
+            stars = "⭐" * min(len(daughters), 10)
+            st.markdown(f"**[{i}위] {sire_name}** (기간 내 엘리트 @: {len(daughters)}두) {stars}")
+            
+            # 체크박스 선택 시 가지연결 데이터 노출
+            if is_selected:
+                with st.container(border=True):
+                    st.write(f"🔎 **{sire_name}** 배출 엘리트 종빈마들의 '가지연결' 자마 분석")
+                    
+                    for d in daughters:
+                        # 가지연결 로직: 엘리트 종빈마(d['name'])의 자식 노드만 가져옴
+                        offspring = children_map.get(d['name'], [])
+                        
+                        st.markdown(f"👉 **엘리트 종빈마: {d['name']}**")
+                        if offspring:
+                            # 3열로 깔끔하게 표시
+                            sub_cols = st.columns(3)
+                            for idx, child_name in enumerate(offspring):
+                                sub_cols[idx % 3].write(f"- 🐎 {child_name}")
+                        else:
+                            st.caption("연결된 하위 가지(자마) 데이터가 없습니다.")
+        st.divider()
 
