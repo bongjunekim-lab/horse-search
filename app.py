@@ -7,10 +7,9 @@ from collections import defaultdict
 # 1. 페이지 설정
 st.set_page_config(page_title="엘리트 혈통 시스템", layout="wide")
 
-# CSS 설정: 씨수말과 엘리트 종빈마의 시각적 구분
+# CSS 설정: 종빈마 파란색 강조 및 자마 스타일
 st.markdown("""
     <style>
-    /* 엘리트 종빈마 스타일: 파란색, 굵게, 폰트 확대 */
     .elite-mare {
         color: #1E90FF !important;
         font-weight: bold;
@@ -18,14 +17,12 @@ st.markdown("""
         margin-top: 12px;
         margin-bottom: 5px;
     }
-    /* 자마 아이템 스타일 */
     .progeny-item {
         margin-left: 30px;
         margin-bottom: 3px;
         color: #444444;
         font-size: 1.05em;
     }
-    /* 구분선 스타일 */
     .hr-line {
         margin: 10px 0;
         border-bottom: 1px solid #ddd;
@@ -39,7 +36,6 @@ def load_and_analyze_data():
         return None, "파일을 찾을 수 없습니다."
 
     try:
-        # 파일 읽기 및 파싱
         tree = ET.parse(file_path)
         root = tree.getroot()
         
@@ -60,18 +56,12 @@ def load_and_analyze_data():
                 birth_year = int(year_match.group(1)) if year_match else 0
                 
                 progeny = []
-                # 1. 화살표 연결 추적
+                # [수정] 화살표 연결(arrowlink)만 추출하고, 일반 하위 노드(가지)는 무시함
                 for arrow in node.findall('arrowlink'):
                     dest_id = arrow.get('DESTINATION')
                     if dest_id in id_map:
                         progeny.append(f"🔗 [연결] {id_map[dest_id]}")
                 
-                # 2. 하위 가지 추적
-                for child in node.findall('node'):
-                    c_text = child.get('TEXT', '')
-                    if c_text:
-                        progeny.append(f"🌿 [가지] {c_text}")
-
                 mare_info = {
                     'name': my_text.strip(),
                     'year': birth_year,
@@ -88,10 +78,9 @@ def load_and_analyze_data():
     except Exception as e:
         return None, f"분석 오류: {str(e)}"
 
-# --- 메인 화면 ---
+# --- UI 메인 ---
 st.title("🐎 암말우성 씨수말 랭킹 시스템")
 
-# 보안 암호
 password = st.text_input("접속 암호를 입력하세요", type="password")
 if password != "3811":
     if password: st.error("암호 오류")
@@ -102,17 +91,14 @@ if err:
     st.error(err)
     st.stop()
 
-# 사이드바 연도 필터
 start_y, end_y = st.sidebar.slider("종빈마 출생 연도 설정", 1900, 2030, (1900, 2026))
 
-# 데이터 정리
 results = []
 for sire, daughters in elite_map.items():
     filtered = [d for d in daughters if start_y <= d['year'] <= end_y]
     if filtered:
         results.append((sire, filtered, len(daughters)))
 
-# 랭킹순 정렬
 results.sort(key=lambda x: len(x[1]), reverse=True)
 
 # --- 결과 출력 ---
@@ -122,22 +108,19 @@ else:
     st.write(f"현재 총 **{len(results)}두**의 씨수말이 검색되었습니다.")
     
     for i, (sire, daughters, total) in enumerate(results[:100], 1):
-        # [수정 포인트] 씨수말 이름만 먼저 보여주는 Expander 사용
-        # 제목을 굵고 크게 설정
         expander_title = f"[{i}위] {sire} (엘리트 종빈마: {len(daughters)}두)"
         
         with st.expander(expander_title):
-            # 펼쳤을 때 나타나는 상세 정보
             st.markdown(f"#### 🏆 {sire} (전체 누적: {total}두)")
             st.markdown("<div class='hr-line'></div>", unsafe_allow_html=True)
             
             for d in daughters:
-                # 엘리트 종빈마 (파란색 강조)
+                # 엘리트 종빈마 표시
                 st.markdown(f"<div class='elite-mare'>⭐ {d['name']} ({d['year']}년생)</div>", unsafe_allow_html=True)
                 
-                # 해당 종빈마의 자마 리스트
+                # [수정] 화살표로 연결된 자마만 표시
                 if d['progeny']:
                     for p in d['progeny']:
                         st.markdown(f"<div class='progeny-item'>{p}</div>", unsafe_allow_html=True)
                 else:
-                    st.markdown("<div class='progeny-item' style='color:#999;'>- 연결된 자마 데이터 없음</div>", unsafe_allow_html=True)
+                    st.markdown("<div class='progeny-item' style='color:#999;'>- 연결된 화살표 자마 없음</div>", unsafe_allow_html=True)
