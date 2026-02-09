@@ -92,24 +92,32 @@ start_year, end_year = st.sidebar.slider(
 )
 
 st.divider() # 구분선
-# --- [검색 기능 추가] ---
+# --- [업그레이드된 검색 기능] ---
 st.markdown("### 🐎 자마 이름으로 부친 찾기")
 search_keyword = st.text_input("찾고 싶은 자마(딸)의 이름을 입력하세요", placeholder="예: Alluvial")
 
 if search_keyword:
     st.write(f"🔎 **'{search_keyword}'** 검색 결과...")
-    found_count = 0
+    found_any = False
     
-    # 선생님 코드 변수명(sire_map)에 맞췄습니다.
+    # 1. [핵심] 이 말이 '엄마(부모)'로서 낳은 자식 찾기 (원하시는 기능!)
+    for parent_name, children in sire_map.items():
+        if search_keyword.lower() in parent_name.lower():
+            found_any = True
+            with st.expander(f"🏆 [자마 목록] {parent_name}의 배출 자마", expanded=True):
+                st.success(f"이 말은 총 {len(children)}두의 엘리트 자마를 낳았습니다.")
+                for child in children:
+                    st.write(f"- 🐎 **{child['name']}** ({child['year']}년생)")
+
+    # 2. [참고] 이 말이 '딸'로서 누구의 자식인지 찾기
     for sire_name, daughters in sire_map.items():
         for mare in daughters:
             if search_keyword.lower() in mare['name'].lower():
-                found_count += 1
-                st.success(f"✅ **{mare['name']}** ({mare['year']}년생)")
-                st.info(f"   👉 이 말의 부친(Sire)은 **[{sire_name}]** 입니다.")
-                
-    if found_count == 0:
-        st.warning("❌ 검색된 말이 없습니다.")
+                found_any = True
+                st.info(f"🧬 [혈통 정보] **{mare['name']}** 의 부친(Sire)은 **[{sire_name}]** 입니다.")
+
+    if not found_any:
+        st.warning("❌ 검색 결과가 없습니다. (엘리트 자마 데이터에 없는 말일 수 있습니다)")
 # ----------------------
 # 결과 분석 로직
 sorted_results = []
@@ -157,6 +165,7 @@ else:
                 # 리스트 형태로 출력
 
                 st.text(f"  - [{mare['year']}년생] {mare['name']}")
+
 
 
 
