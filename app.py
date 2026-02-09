@@ -30,31 +30,27 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# 데이터 로딩 함수 (에러 방지 강화)
 def load_and_analyze_data():
     file_path = '우수한 경주마(수말, 암말).mm'
-    
-    # [체크 1] 파일 존재 여부 확인
     if not os.path.exists(file_path):
-        return None, f"파일을 찾을 수 없습니다. (파일명: {file_path})"
+        return None, "파일을 찾을 수 없습니다."
 
     try:
-        # [체크 2] 파일 크기 확인 (0바이트 방지)
-        if os.path.getsize(file_path) == 0:
-            return None, "파일 내용이 비어 있습니다. (0 bytes)"
-
-        # [체크 3] 파일 읽기 시도
-        with open(file_path, 'r', encoding='utf-8') as f:
-            xml_content = f.read()
+        tree = ET.parse(file_path)
+        root = tree.getroot()
         
-        # [체크 4] XML 파싱
-        root = ET.fromstring(xml_content)
+        # [핵심] ID별 텍스트 및 해당 노드의 부모 텍스트를 미리 매핑
+        id_to_text = {}
+        id_to_parent_text = {}
         
-        id_map = {}
-        for node in root.iter('node'):
-            nid = node.get('ID')
-            if nid:
-                id_map[nid] = node.get('TEXT', '')
+        # 부모-자식 관계를 전수 조사
+        for parent in root.iter('node'):
+            p_text = parent.get('TEXT', 'Unknown')
+            for child in parent.findall('node'):
+                c_id = child.get('ID')
+                if c_id:
+                    id_to_text[c_id] = child.get('TEXT', '')
+                    id_to_parent_text[c_id] = p_text
 
         year_pattern = re.compile(r'(\d{4})')
         elite_sire_map = defaultdict(list)
@@ -66,10 +62,14 @@ def load_and_analyze_data():
                 birth_year = int(year_match.group(1)) if year_match else 0
                 
                 progeny = []
+                # 화살표 연결(arrowlink) 추적
                 for arrow in node.findall('arrowlink'):
                     dest_id = arrow.get('DESTINATION')
-                    if dest_id in id_map:
-                        progeny.append(f"🔗 [연결] {id_map[dest_id]}")
+                    if dest_id in id_to_text:
+                        child_name = id_to_text[dest_id]
+                        # 해당 자마의 부마(부모 노드) 정보 가져오기
+                        sire_info = id_to_parent_text.get(dest_id, "정보 없음")
+                        progeny.append(f"🔗 [연결] {child_name} ({sire_info})")
                 
                 mare_info = {
                     'name': my_text.strip(),
@@ -84,30 +84,21 @@ def load_and_analyze_data():
 
         traverse(root)
         return elite_sire_map, None
-        
-    except ET.ParseError:
-        return None, "XML 형식이 올바르지 않습니다. (.mm 파일이 맞는지 확인해주세요)"
     except Exception as e:
-        return None, f"분석 중 오류 발생: {str(e)}"
+        return None, f"분석 오류: {str(e)}"
 
 # --- UI 메인 ---
 st.title("🐎 암말우성 씨수말 랭킹 및 혈통 추적")
 
-# 접속 암호 5500
 password = st.text_input("접속 암호를 입력하세요", type="password")
 if password != "5500":
     if password: st.error("암호 오류")
     st.stop()
 
-# 데이터 불러오기 (캐시 문제 방지를 위해 일반 호출)
 elite_map, err = load_and_analyze_data()
-
 if err:
-    st.error(f"❌ {err}")
-    st.info("💡 팁: GitHub 리포지토리에 '우수한 경주마(수말, 암말).mm' 파일이 실제로 업로드되어 있는지 확인해 주세요.")
-    st.stop()
+    st.error(err); st.stop()
 
-# 사이드바 연도 필터
 start_y, end_y = st.sidebar.slider("종빈마 출생 연도 필터", 1900, 2030, (1900, 2026))
 
 results = []
@@ -118,7 +109,6 @@ for sire, daughters in elite_map.items():
 
 results.sort(key=lambda x: len(x[1]), reverse=True)
 
-# --- 결과 출력 ---
 if not results:
     st.warning("조건에 맞는 데이터가 없습니다.")
 else:
@@ -132,7 +122,9 @@ else:
         with st.expander(expander_title):
             st.markdown("<div class='hr-line'></div>", unsafe_allow_html=True)
             for d in daughters:
+                # 다이아몬드 + 마명만 노출 (연도 삭제 유지)
                 st.markdown(f"<div class='elite-mare'>💎 {d['name']}</div>", unsafe_allow_html=True)
+                
                 if d['progeny']:
                     for p in d['progeny']:
                         st.markdown(f"<div class='progeny-item'>{p}</div>", unsafe_allow_html=True)
