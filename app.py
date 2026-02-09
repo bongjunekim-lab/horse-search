@@ -21,41 +21,37 @@ def load_and_analyze_data():
         return None, f"파일 로딩 오류: {e}"
 
     year_pattern = re.compile(r'(\d{4})')
-    # 엘리트(@) 전용 맵과 검색용 전체 맵 분리
+    # 엘리트(@) 자마 데이터만 저장하는 맵
     elite_sire_map = defaultdict(list)
-    full_search_map = defaultdict(list)
 
     def traverse(node, parent_text="Unknown"):
         my_text = node.get('TEXT', '')
         parent_clean = parent_text.strip()
 
         if my_text:
-            year_match = year_pattern.search(my_text)
-            birth_year = int(year_match.group(1)) if year_match else 0
-            is_elite = '@' in my_text
-
-            mare_info = {
-                'name': my_text.strip(),
-                'year': birth_year,
-                'is_elite': is_elite
-            }
-
-            if parent_clean and parent_clean != "Unknown":
-                # [A] 종빈마 검색용: 모든 말을 저장
-                full_search_map[parent_clean].append(mare_info)
+            # 이름에 '@'가 포함된 경우만 분석 대상으로 삼음
+            if '@' in my_text:
+                year_match = year_pattern.search(my_text)
+                birth_year = int(year_match.group(1)) if year_match else 0
                 
-                # [B] 랭킹 집계용: 오직 이름에 '@'가 있는 엘리트 자마만 저장
-                if is_elite:
+                mare_info = {
+                    'name': my_text.strip(),
+                    'year': birth_year,
+                    'is_elite': True
+                }
+
+                if parent_clean and parent_clean != "Unknown":
+                    # 씨수말(부마) 별로 엘리트 자마 정보를 저장
                     elite_sire_map[parent_clean].append(mare_info)
         
         for child in node:
             traverse(child, parent_text=my_text)
 
     traverse(root)
-    return elite_sire_map, full_search_map, None
+    return elite_sire_map, None
 
 # --- 메인 화면 시작 ---
-st.title("🐎 암말우성 씨수말 & 종빈마 통합 검색")
+st.title("🐎 암말우성 씨수말 랭킹 검색")
 
 # [보안] 암호 확인
 password = st.text_input("접속 암호를 입력하세요", type="password")
@@ -64,8 +60,8 @@ if password != "3811":
         st.error("암호가 틀렸습니다.")
     st.stop()
 
-# 데이터 불러오기
-elite_map, full_map, error_message = load_and_analyze_data()
+# 데이터 불러오기 (종빈마 검색용 full_map 제거)
+elite_map, error_message = load_and_analyze_data()
 if error_message:
     st.error(f"❌ {error_message}")
     st.stop()
@@ -78,49 +74,31 @@ start_year, end_year = st.sidebar.slider(
     value=(1900, 2026)
 )
 
-# --- [기능 1: 종빈마 자마 검색] ---
-st.markdown("### 🔍 종빈마 이름으로 자마(자식) 찾기")
-search_keyword = st.text_input("종빈마 이름을 입력하세요", placeholder="예: Mariah's Storm, Buy The Cat")
+# --- [종빈마 검색 기능 삭제됨] ---
 
-if search_keyword:
-    st.markdown(f"#### 🔎 '{search_keyword}' 검색 결과")
-    found_mom = False
-    for parent_name, children_list in full_map.items():
-        if search_keyword.lower() in parent_name.lower():
-            found_mom = True
-            with st.container():
-                st.success(f"✅ **[{parent_name}]** 종빈마의 배출 자마 목록")
-                for child in sorted(children_list, key=lambda x: x['year']):
-                    icon = "⭐" if child['is_elite'] else "🐎"
-                    st.write(f"- {icon} **{child['name']}** ({child['year']}년생)")
-            st.divider()
-    if not found_mom:
-        st.warning(f"❌ '{search_keyword}' 데이터를 찾을 수 없습니다.")
-
-# --- [기능 2: 엘리트 씨수말 랭킹 (복구 핵심!)] ---
-st.divider()
-st.markdown("### 📊 암말우성 씨수말")
-st.caption("※ 오직 이름에 '@'가 포함된 엘리트 종빈마만 집계합니다.")
+# --- [엘리트 씨수말 랭킹] ---
+st.markdown("### 📊 암말우성 씨수말 순위")
+st.caption("※ 이름에 '@'가 포함된 엘리트 종빈마 배출 수를 기준으로 집계합니다.")
 
 sorted_results = []
 for sire_name, daughters in elite_map.items():
-    # 필터링: 기간 내에 태어난 '엘리트' 자마들만
+    # 설정된 기간 내에 태어난 엘리트 자마들만 필터링
     filtered = [d for d in daughters if start_year <= d['year'] <= end_year]
     if filtered:
-        # (씨수말 이름, 기간내 엘리트 수, 전체 엘리트 수) 저장
+        # (씨수말 이름, 필터링된 리스트, 전체 엘리트 수)
         sorted_results.append((sire_name, filtered, len(daughters)))
 
 # 기간 내 엘리트 자마가 많은 순으로 정렬
 sorted_results.sort(key=lambda x: len(x[1]), reverse=True)
 
 if sorted_results:
-    st.info(f"✅ 총 {len(sorted_results)}두의 엘리트 배출 씨수말이 검색되었습니다.")
+    st.info(f"✅ 총 {len(sorted_results)}두의 씨수말이 검색되었습니다.")
     for i, (sire_name, daughters, total_count) in enumerate(sorted_results[:50], 1):
         stars = "⭐" * min(len(daughters), 10)
-        # 이제 (전체: 170두)가 아니라 실제 @ 개수인 (전체: 8두) 형식으로 나옵니다.
-        with st.expander(f"[{i}위] {sire_name} (기간 내: {len(daughters)}두 / 전체 엘리트: {total_count}두) {stars}"):
+        
+        # UI 개선: 순위와 이름, 개수를 보기 쉽게 표시
+        with st.expander(f"[{i}위] {sire_name} (선택기간: {len(daughters)}두 / 누적: {total_count}두) {stars}"):
             for d in daughters:
                 st.write(f"- ⭐ {d['name']} ({d['year']}년생)")
 else:
-    st.warning("해당 조건에 맞는 엘리트 데이터가 없습니다.")
-
+    st.warning("해당 조건에 맞는 데이터가 없습니다.")
