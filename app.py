@@ -21,26 +21,7 @@ st.markdown("""
 
 > **엘리트 종빈마란?** > G급(Grade) 자마를 줄줄이 배출한, 유전력이 검증된 **슈퍼 씨암말**을 지칭합니다.
 """)
-# --- [검색 기능 추가] ---
-st.markdown("### 🐎 엘리트 종빈마 입력해보세요")
-search_keyword = st.text_input("그럼 엘리트 종빈마가 배출한 자마가 검색됩니다", placeholder="예: Alluvial")
 
-if search_keyword:
-    st.write(f"🔎 **'{search_keyword}'** 검색 결과...")
-    found_count = 0
-    # merged_sire_map이 미리 만들어져 있어야 작동합니다
-    if 'merged_sire_map' in locals():
-        for sire_name, daughters in merged_sire_map.items():
-            for mare in daughters:
-                if search_keyword.lower() in mare['name'].lower():
-                    found_count += 1
-                    st.success(f"✅ **{mare['name']}** ({mare['year']}년생)")
-                    st.info(f"   👉 이 말의 부친(Sire)은 **[{sire_name}]** 입니다.")
-        if found_count == 0:
-            st.warning("❌ 검색된 말이 없습니다.")
-    else:
-        st.error("데이터가 아직 로딩되지 않았습니다. 코드를 데이터 로딩 아래로 옮겨주세요.")
-# ----------------------
 # 3. 데이터 로딩 및 분석 함수 (캐싱으로 속도 최적화)
 @st.cache_data
 def load_and_analyze_data():
@@ -111,7 +92,25 @@ start_year, end_year = st.sidebar.slider(
 )
 
 st.divider() # 구분선
+# --- [검색 기능 추가] ---
+st.markdown("### 🐎 자마 이름으로 부친 찾기")
+search_keyword = st.text_input("찾고 싶은 자마(딸)의 이름을 입력하세요", placeholder="예: Alluvial")
 
+if search_keyword:
+    st.write(f"🔎 **'{search_keyword}'** 검색 결과...")
+    found_count = 0
+    
+    # 선생님 코드 변수명(sire_map)에 맞췄습니다.
+    for sire_name, daughters in sire_map.items():
+        for mare in daughters:
+            if search_keyword.lower() in mare['name'].lower():
+                found_count += 1
+                st.success(f"✅ **{mare['name']}** ({mare['year']}년생)")
+                st.info(f"   👉 이 말의 부친(Sire)은 **[{sire_name}]** 입니다.")
+                
+    if found_count == 0:
+        st.warning("❌ 검색된 말이 없습니다.")
+# ----------------------
 # 결과 분석 로직
 sorted_results = []
 total_found_mares = 0
@@ -158,6 +157,7 @@ else:
                 # 리스트 형태로 출력
 
                 st.text(f"  - [{mare['year']}년생] {mare['name']}")
+
 
 
 
