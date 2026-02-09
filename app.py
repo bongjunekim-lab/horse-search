@@ -7,53 +7,41 @@ from collections import defaultdict
 # 1. 페이지 설정
 st.set_page_config(page_title="엘리트 혈통 시스템", layout="wide")
 
-# CSS 스타일 설정 (색상 및 폰트)
+# CSS 설정: 씨수말과 엘리트 종빈마의 시각적 구분
 st.markdown("""
     <style>
-    .sire-container {
-        background-color: #f0f2f6;
-        padding: 15px;
-        border-radius: 10px;
-        margin-bottom: 20px;
-        border-left: 5px solid #333;
-    }
-    .sire-title {
-        font-weight: bold;
-        font-size: 1.6em;
-        color: #333333;
-        margin-bottom: 10px;
-    }
+    /* 엘리트 종빈마 스타일: 파란색, 굵게, 폰트 확대 */
     .elite-mare {
         color: #1E90FF !important;
         font-weight: bold;
         font-size: 1.25em;
-        margin-top: 10px;
-        margin-left: 10px;
-    }
-    .progeny-item {
-        margin-left: 40px;
+        margin-top: 12px;
         margin-bottom: 5px;
-        color: #555555;
+    }
+    /* 자마 아이템 스타일 */
+    .progeny-item {
+        margin-left: 30px;
+        margin-bottom: 3px;
+        color: #444444;
         font-size: 1.05em;
     }
-    hr { margin: 10px 0; }
+    /* 구분선 스타일 */
+    .hr-line {
+        margin: 10px 0;
+        border-bottom: 1px solid #ddd;
+    }
     </style>
     """, unsafe_allow_html=True)
 
-# 데이터 로딩 함수 (캐시를 일시적으로 비활성화하여 파일 로딩 오류 체크)
 def load_and_analyze_data():
     file_path = '우수한 경주마(수말, 암말).mm'
     if not os.path.exists(file_path):
-        return None, "파일을 찾을 수 없습니다. 경로를 확인해주세요."
+        return None, "파일을 찾을 수 없습니다."
 
     try:
-        # 파일 내용을 먼저 읽어서 비어있는지 확인
-        with open(file_path, 'r', encoding='utf-8') as f:
-            xml_data = f.read()
-            if not xml_data.strip():
-                return None, "파일 내용이 비어 있습니다."
-        
-        root = ET.fromstring(xml_data)
+        # 파일 읽기 및 파싱
+        tree = ET.parse(file_path)
+        root = tree.getroot()
         
         # ID 맵핑 (화살표 추적용)
         id_map = {}
@@ -72,13 +60,13 @@ def load_and_analyze_data():
                 birth_year = int(year_match.group(1)) if year_match else 0
                 
                 progeny = []
-                # 화살표 연결 자마 추출
+                # 1. 화살표 연결 추적
                 for arrow in node.findall('arrowlink'):
                     dest_id = arrow.get('DESTINATION')
                     if dest_id in id_map:
                         progeny.append(f"🔗 [연결] {id_map[dest_id]}")
                 
-                # 하위 가지 자마 추출
+                # 2. 하위 가지 추적
                 for child in node.findall('node'):
                     c_text = child.get('TEXT', '')
                     if c_text:
@@ -98,13 +86,13 @@ def load_and_analyze_data():
         traverse(root)
         return elite_sire_map, None
     except Exception as e:
-        return None, f"분석 중 오류 발생: {str(e)}"
+        return None, f"분석 오류: {str(e)}"
 
 # --- 메인 화면 ---
-st.title("🐎 씨수말 랭킹 및 엘리트 자마 상세 (자동 펼침)")
+st.title("🐎 암말우성 씨수말 랭킹 시스템")
 
 # 보안 암호
-password = st.text_input("접속 암호", type="password")
+password = st.text_input("접속 암호를 입력하세요", type="password")
 if password != "3811":
     if password: st.error("암호 오류")
     st.stop()
@@ -114,7 +102,7 @@ if err:
     st.error(err)
     st.stop()
 
-# 사이드바 설정
+# 사이드바 연도 필터
 start_y, end_y = st.sidebar.slider("종빈마 출생 연도 설정", 1900, 2030, (1900, 2026))
 
 # 데이터 정리
@@ -124,29 +112,32 @@ for sire, daughters in elite_map.items():
     if filtered:
         results.append((sire, filtered, len(daughters)))
 
+# 랭킹순 정렬
 results.sort(key=lambda x: len(x[1]), reverse=True)
 
-# --- 결과 출력 (클릭 없이 바로 보임) ---
+# --- 결과 출력 ---
 if not results:
     st.warning("조건에 맞는 데이터가 없습니다.")
 else:
-    for i, (sire, daughters, total) in enumerate(results[:50], 1):
-        # 씨수말 구역 시작
-        st.markdown(f"""
-            <div class="sire-container">
-                <div class="sire-title">{i}위. {sire} (기간내: {len(daughters)} / 누적: {total})</div>
-                <hr>
-        """, unsafe_allow_html=True)
+    st.write(f"현재 총 **{len(results)}두**의 씨수말이 검색되었습니다.")
+    
+    for i, (sire, daughters, total) in enumerate(results[:100], 1):
+        # [수정 포인트] 씨수말 이름만 먼저 보여주는 Expander 사용
+        # 제목을 굵고 크게 설정
+        expander_title = f"[{i}위] {sire} (엘리트 종빈마: {len(daughters)}두)"
         
-        for d in daughters:
-            # 엘리트 종빈마 (파란색 강조)
-            st.markdown(f"<div class='elite-mare'>⭐ {d['name']} ({d['year']}년생)</div>", unsafe_allow_html=True)
+        with st.expander(expander_title):
+            # 펼쳤을 때 나타나는 상세 정보
+            st.markdown(f"#### 🏆 {sire} (전체 누적: {total}두)")
+            st.markdown("<div class='hr-line'></div>", unsafe_allow_html=True)
             
-            # 자마 목록
-            if d['progeny']:
-                for p in d['progeny']:
-                    st.markdown(f"<div class='progeny-item'>{p}</div>", unsafe_allow_html=True)
-            else:
-                st.markdown("<div class='progeny-item' style='color:#bbb;'>- 연결된 자마 정보 없음</div>", unsafe_allow_html=True)
-        
-        st.markdown("</div>", unsafe_allow_html=True) # 구역 끝
+            for d in daughters:
+                # 엘리트 종빈마 (파란색 강조)
+                st.markdown(f"<div class='elite-mare'>⭐ {d['name']} ({d['year']}년생)</div>", unsafe_allow_html=True)
+                
+                # 해당 종빈마의 자마 리스트
+                if d['progeny']:
+                    for p in d['progeny']:
+                        st.markdown(f"<div class='progeny-item'>{p}</div>", unsafe_allow_html=True)
+                else:
+                    st.markdown("<div class='progeny-item' style='color:#999;'>- 연결된 자마 데이터 없음</div>", unsafe_allow_html=True)
