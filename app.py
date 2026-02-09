@@ -7,7 +7,7 @@ from collections import defaultdict
 # 1. 페이지 설정
 st.set_page_config(page_title="엘리트 혈통 추적 시스템", layout="wide")
 
-# CSS 설정: 종빈마 파란색, 닉 적색, G1 우수 자마 보라색
+# CSS 설정: 종빈마 파란색, 닉 적색, G1 우수 자마(G1-7 이상) 보라색
 st.markdown("""
     <style>
     .elite-mare {
@@ -51,7 +51,6 @@ def load_and_analyze_data():
         id_to_text = {}
         id_to_parent_text = {}
         
-        # 1. 전수 조사: 모든 노드와 부모 관계 매핑
         for parent in root.iter('node'):
             p_text = parent.get('TEXT', 'Unknown')
             for child in parent.findall('node'):
@@ -92,7 +91,7 @@ def load_and_analyze_data():
         return None, None, None, f"분석 오류: {str(e)}"
 
 # --- UI 메인 ---
-st.title("🐎 암말우성 씨수말 랭킹 및 1대 자마 성적 분석")
+st.title("🐎 암말우성 씨수말 랭킹 및 1대 자마 성적 분석 (G1-7 기준)")
 
 password = st.text_input("접속 암호를 입력하세요", type="password")
 if password != "5500":
@@ -143,19 +142,18 @@ else:
                         child_name = id_to_text.get(p_id, "")
                         father_name = id_to_parent_text.get(p_id, "정보 없음")
                         
-                        # 1. 자마(Child) 성적 분석: G1-10 이상이면 보라색
+                        # [변경 사항] 자마(Child) 성적 분석: G1-7 이상이면 보라색 강조
                         child_display = child_name
                         g1_match = g1_pattern.search(child_name)
-                        if g1_match and int(g1_match.group(1)) >= 10:
+                        if g1_match and int(g1_match.group(1)) >= 7:
                             child_display = f"<span class='top-progeny'>{child_name}</span>"
                         
-                        # 2. 아버지(Father) 정보 분석: 닉(Nick) 중복 시 적색 (기존 로직 유지)
+                        # [유지 사항] 아버지(Father) 정보: 닉(Nick) 중복 시 적색 강조
                         if len(sire_to_mothers[father_name]) >= 2:
                             father_display = f"<span class='nick-red'>{father_name}</span>"
                         else:
                             father_display = f"<b>{father_name}</b>"
                         
-                        # 최종 출력: 자마 정보와 부마 정보를 결합
                         st.markdown(f"<div class='progeny-item'>🔗 [연결] {child_display} ({father_display})</div>", unsafe_allow_html=True)
                 else:
                     st.markdown("<div class='progeny-item' style='color:#999;'>- 연결된 화살표 자마 정보 없음</div>", unsafe_allow_html=True)
