@@ -7,7 +7,9 @@ from collections import defaultdict
 # 1. 페이지 설정
 st.set_page_config(page_title="엘리트 혈통 추적 시스템", layout="wide")
 
-# CSS 설정: 종빈마 파란색, 닉 적색, G1 우수 자마(G1-5 이상) 보라색
+# CSS 설정
+# top-progeny (보라색): G1 7승 이상 (최우선, 수말 성격)
+# elite-daughter (진한 파란색): 번식 우수 암말 (@, #)
 st.markdown("""
     <style>
     .elite-mare {
@@ -24,7 +26,11 @@ st.markdown("""
         font-size: 1.05em;
     }
     .top-progeny {
-        color: #9400D3 !important; /* 검은 보라색 (DarkViolet) */
+        color: #9400D3 !important; /* 보라색 (DarkViolet) - G1 우수마 (수말 등) */
+        font-weight: bold;
+    }
+    .elite-daughter {
+        color: #00008B !important; /* 진한 파란색 (DarkBlue) - 번식 우수 딸 */
         font-weight: bold;
     }
     .nick-red {
@@ -126,7 +132,7 @@ else:
         with st.expander(expander_title):
             st.markdown("<div class='hr-line'></div>", unsafe_allow_html=True)
             
-            # 닉(Nick) 분석 로직 유지 (서로 다른 모마 수 카운트)
+            # 닉(Nick) 분석 로직
             sire_to_mothers = defaultdict(set)
             for d in daughters:
                 for p_id in d['progeny_ids']:
@@ -142,13 +148,29 @@ else:
                         child_name = id_to_text.get(p_id, "")
                         father_name = id_to_parent_text.get(p_id, "정보 없음")
                         
-                        # [변경 사항] 자마(Child) 성적 분석: G1-7 이상이면 보라색 강조
-                        child_display = child_name
-                        g1_match = g1_pattern.search(child_name)
-                        if g1_match and int(g1_match.group(1)) >= 7:
-                            child_display = f"<span class='top-progeny'>{child_name}</span>"
+                        # --- [수정된 로직: 보라색 최우선] ---
                         
-                        # [유지 사항] 아버지(Father) 정보: 닉(Nick) 중복 시 적색 강조
+                        child_display = child_name
+                        
+                        # 1. G1 성적 확인 (보라색)
+                        g1_match = g1_pattern.search(child_name)
+                        is_high_g1 = g1_match and int(g1_match.group(1)) >= 7
+                        
+                        # 2. 번식 우수 딸 확인 (진한 파란색)
+                        # '암)'이 포함되고 동시에 '@' 또는 '#'이 있는 경우
+                        is_elite_daughter = ('암)' in child_name) and (('@' in child_name) or ('#' in child_name))
+                        
+                        # [중요] 우선순위 적용: 
+                        # 1순위: G1 7승 이상이면 무조건 보라색 (건들지 않음)
+                        if is_high_g1:
+                            child_display = f"<span class='top-progeny'>{child_name}</span>"
+                        # 2순위: 보라색이 아니고, 번식 우수 딸인 경우 진한 파란색
+                        elif is_elite_daughter:
+                            child_display = f"<span class='elite-daughter'>{child_name}</span>"
+                        
+                        # --- [로직 끝] ---
+
+                        # 아버지(Father) 정보: 닉(Nick) 중복 시 적색 강조
                         if len(sire_to_mothers[father_name]) >= 2:
                             father_display = f"<span class='nick-red'>{father_name}</span>"
                         else:
@@ -157,4 +179,3 @@ else:
                         st.markdown(f"<div class='progeny-item'>🔗 [연결] {child_display} ({father_display})</div>", unsafe_allow_html=True)
                 else:
                     st.markdown("<div class='progeny-item' style='color:#999;'>- 연결된 화살표 자마 정보 없음</div>", unsafe_allow_html=True)
-
