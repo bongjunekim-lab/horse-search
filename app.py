@@ -51,6 +51,7 @@ def load_and_analyze_data():
         id_to_text = {}
         id_to_parent_text = {}
         
+        # 1. 모든 노드와 부모 관계 맵핑
         for parent in root.iter('node'):
             p_text = parent.get('TEXT', 'Unknown')
             for child in parent.findall('node'):
@@ -91,7 +92,7 @@ def load_and_analyze_data():
         return None, None, None, f"분석 오류: {str(e)}"
 
 # --- UI 메인 ---
-st.title("🐎 엘리트 혈통 및 G1 배출성적 분석 시스템")
+st.title("🐎 엘리트 종빈마 1대 자마 성적 분석 시스템")
 
 password = st.text_input("접속 암호를 입력하세요", type="password")
 if password != "5500":
@@ -125,7 +126,7 @@ else:
         with st.expander(expander_title):
             st.markdown("<div class='hr-line'></div>", unsafe_allow_html=True)
             
-            # 닉 분석을 위한 부마별 모마 카운트
+            # 현재 씨수말 하위 계보 내 닉 분석 (서로 다른 모마 수 카운트)
             sire_to_mothers = defaultdict(set)
             for d in daughters:
                 for p_id in d['progeny_ids']:
@@ -133,7 +134,6 @@ else:
                     sire_to_mothers[p_sire_name].add(d['name'])
             
             for d in daughters:
-                # 💎 종빈마 표시
                 st.markdown(f"<div class='elite-mare'>💎 {d['name']}</div>", unsafe_allow_html=True)
                 
                 if d['progeny_ids']:
@@ -141,23 +141,25 @@ else:
                         child_name = id_to_text.get(p_id, "")
                         progeny_sire = id_to_parent_text.get(p_id, "정보 없음")
                         
-                        # 시각적 강조 로직 적용 (우선순위: G1성적 보라색 > 닉 적색 > 일반)
-                        p_sire_display = f"<b>{progeny_sire}</b>"
-                        
-                        # 1. G1 성적 체크 (10두 이상 시 보라색)
+                        # 1단계: G1 성적 체크 (10두 이상 보라색)
+                        is_top = False
                         g1_match = g1_pattern.search(progeny_sire)
-                        is_top_stallion = False
                         if g1_match and int(g1_match.group(1)) >= 10:
-                            p_sire_display = f"<span class='top-stallion'>{progeny_sire}</span>"
-                            is_top_stallion = True
+                            is_top = True
                         
-                        # 2. 닉 중복 체크 (성적보다 닉이 분석의 핵심이므로 닉 중복 시 적색 덮어쓰기 가능)
-                        # 원하시는 대로 보라색이 더 중요하면 조건을 반대로 하시면 됩니다.
-                        if len(sire_to_mothers[progeny_sire]) >= 2:
-                            # 만약 G1 성적도 좋고 닉도 좋으면 '닉(적색)'을 우선 표시하거나 혼합할 수 있습니다.
-                            # 여기서는 닉 성과를 적색으로 강조합니다.
-                            p_sire_display = f"<span class='nick-red'>{progeny_sire}</span>"
+                        # 2단계: 닉(Nick) 중복 체크
+                        is_nick = len(sire_to_mothers[progeny_sire]) >= 2
                         
-                        st.markdown(f"<div class='progeny-item'>🔗 [연결] {child_name} ({p_sire_display})</div>", unsafe_allow_html=True)
+                        # 강조 우선순위 적용 및 렌더링
+                        # 닉 성공(적색)이 성적(보라색)보다 혈통 결합 측면에서 중요하므로 닉 중복 시 적색 우선
+                        if is_nick:
+                            display_text = f"<span class='nick-red'>{progeny_sire}</span>"
+                        elif is_top:
+                            display_text = f"<span class='top-stallion'>{progeny_sire}</span>"
+                        else:
+                            display_text = f"<b>{progeny_sire}</b>"
+                        
+                        st.markdown(f"<div class='progeny-item'>🔗 [연결] {child_name} ({display_text})</div>", unsafe_allow_html=True)
                 else:
                     st.markdown("<div class='progeny-item' style='color:#999;'>- 연결된 화살표 자마 정보 없음</div>", unsafe_allow_html=True)
+
