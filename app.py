@@ -92,32 +92,49 @@ start_year, end_year = st.sidebar.slider(
 )
 
 st.divider() # 구분선
-# --- [업그레이드된 검색 기능] ---
+# --- [최종 수정: 자마 우선 검색 기능] ---
 st.markdown("### 🐎 자마 이름으로 부친 찾기")
 search_keyword = st.text_input("찾고 싶은 자마(딸)의 이름을 입력하세요", placeholder="예: Alluvial")
 
 if search_keyword:
     st.write(f"🔎 **'{search_keyword}'** 검색 결과...")
-    found_any = False
     
-    # 1. [핵심] 이 말이 '엄마(부모)'로서 낳은 자식 찾기 (원하시는 기능!)
+    # ---------------------------------------------------------
+    # 1. [가장 중요] 이 말이 낳은 '자식들' 먼저 찾기 (Mom Search)
+    # ---------------------------------------------------------
+    mom_found = False
+    st.markdown("#### 1. 🏆 배출한 자마 (자식들)")
+    
+    # 데이터 더미(sire_map)에서 이 말이 '엄마(Key)'로 등록되어 있는지 뒤집니다.
     for parent_name, children in sire_map.items():
+        # 검색어가 부모 이름(parent_name) 속에 들어있는지 확인
         if search_keyword.lower() in parent_name.lower():
-            found_any = True
-            with st.expander(f"🏆 [자마 목록] {parent_name}의 배출 자마", expanded=True):
-                st.success(f"이 말은 총 {len(children)}두의 엘리트 자마를 낳았습니다.")
+            mom_found = True
+            with st.expander(f"✅ {parent_name}의 자마 목록 (클릭해서 보기)", expanded=True):
+                st.write(f"총 {len(children)}두의 자마가 검색되었습니다.")
                 for child in children:
-                    st.write(f"- 🐎 **{child['name']}** ({child['year']}년생)")
+                    st.success(f"  - 🐎 **{child['name']}** ({child['year']}년생)")
 
-    # 2. [참고] 이 말이 '딸'로서 누구의 자식인지 찾기
+    if not mom_found:
+        st.warning("이 말이 '엄마'로서 배출한 자마 기록은 파일에 없습니다.")
+        st.caption("※ 만약 자식이 있어야 하는데 안 나온다면, 엑셀/데이터 파일에서 이 말이 '상위 폴더(부모)'로 되어 있는지 확인해야 합니다.")
+
+    st.divider()
+
+    # ---------------------------------------------------------
+    # 2. [참고] 이 말의 '아빠' 찾기 (Daughter Search)
+    # ---------------------------------------------------------
+    st.markdown("#### 2. 🧬 이 말의 부모 (혈통)")
+    daughter_found = False
+    
     for sire_name, daughters in sire_map.items():
         for mare in daughters:
             if search_keyword.lower() in mare['name'].lower():
-                found_any = True
-                st.info(f"🧬 [혈통 정보] **{mare['name']}** 의 부친(Sire)은 **[{sire_name}]** 입니다.")
+                daughter_found = True
+                st.info(f"✅ **{mare['name']}** ({mare['year']}년생)의 아버지는 **[{sire_name}]** 입니다.")
 
-    if not found_any:
-        st.warning("❌ 검색 결과가 없습니다. (엘리트 자마 데이터에 없는 말일 수 있습니다)")
+    if not daughter_found:
+        st.write("이 말의 부모 정보는 검색되지 않았습니다.")
 # ----------------------
 # 결과 분석 로직
 sorted_results = []
@@ -165,6 +182,7 @@ else:
                 # 리스트 형태로 출력
 
                 st.text(f"  - [{mare['year']}년생] {mare['name']}")
+
 
 
 
