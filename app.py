@@ -10,6 +10,7 @@ st.set_page_config(page_title="엘리트 혈통 추적 시스템", layout="wide"
 # CSS 설정
 # top-progeny (보라색): G1 7승 이상 (최우선)
 # elite-daughter (진한 파란색): 번식 우수 암말 (@, #)
+# star-daughter (진하게): * 표시가 있는 암말
 st.markdown("""
     <style>
     .elite-mare {
@@ -32,6 +33,10 @@ st.markdown("""
     .elite-daughter {
         color: #00008B !important; /* 진한 파란색 (DarkBlue) - 번식 우수 딸 */
         font-weight: bold;
+    }
+    .star-daughter {
+        color: #000000 !important; /* 검정색 */
+        font-weight: 900 !important; /* 아주 진하게 (Bold) */
     }
     .nick-red {
         color: #FF0000 !important;
@@ -156,23 +161,33 @@ else:
                         g1_match = g1_pattern.search(child_name)
                         is_high_g1 = g1_match and int(g1_match.group(1)) >= 7
                         
-                        # 2. 번식 우수 딸 확인 (진한 파란색 조건)
-                        # 조건: '암)' 글자가 있어야 하고, 그 '앞부분'에 @ 또는 #이 있어야 함
-                        is_elite_daughter = False
+                        # 번식 딸 체크를 위한 준비
+                        is_elite_daughter = False # @, #
+                        is_star_daughter = False  # *
+                        
                         if '암)' in child_name:
-                            # '암)'을 기준으로 문장을 자름
+                            # '암)'을 기준으로 앞부분(prefix) 추출
                             parts = child_name.split('암)')
-                            prefix = parts[0] # 앞부분만 가져옴
+                            prefix = parts[0] 
+                            
+                            # 2. 번식 우수 딸 (@, #) 확인
                             if ('@' in prefix) or ('#' in prefix):
                                 is_elite_daughter = True
+                            
+                            # 3. 별표 딸 (*) 확인
+                            if '*' in prefix:
+                                is_star_daughter = True
                         
                         # [우선순위 적용]
                         if is_high_g1:
                             # 1순위: G1 7승 이상 -> 보라색 굵게 (변경 없음)
                             child_display = f"<span class='top-progeny'>{child_name}</span>"
                         elif is_elite_daughter:
-                            # 2순위: G1 조건 아님 + 번식 우수 딸(@/# 암) -> 진한 파란색 굵게
+                            # 2순위: @ 또는 # 이 있는 암말 -> 진한 파란색 굵게
                             child_display = f"<span class='elite-daughter'>{child_name}</span>"
+                        elif is_star_daughter:
+                            # 3순위: * 이 있는 암말 -> 그냥 진하게 (검정색 굵게)
+                            child_display = f"<span class='star-daughter'>{child_name}</span>"
                         
                         # --- [로직 끝] ---
 
