@@ -7,7 +7,7 @@ from collections import defaultdict
 # 1. 페이지 설정
 st.set_page_config(page_title="엘리트 혈통 추적 시스템", layout="wide")
 
-# CSS 설정
+# CSS 설정: 종빈마 파란색, 닉(Nick) 성공 부마 적색 스타일
 st.markdown("""
     <style>
     .elite-mare {
@@ -34,10 +34,11 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
+@st.cache_data
 def load_and_analyze_data():
     file_path = '우수한 경주마(수말, 암말).mm'
     if not os.path.exists(file_path):
-        return None, "파일을 찾을 수 없습니다."
+        return None, None, None, "파일을 찾을 수 없습니다."
 
     try:
         tree = ET.parse(file_path)
@@ -46,7 +47,7 @@ def load_and_analyze_data():
         id_to_text = {}
         id_to_parent_text = {}
         
-        # 1. 전수 조사: 모든 노드와 부모 관계 맵핑
+        # 1. 전수 조사: 모든 노드와 부모 관계 매핑
         for parent in root.iter('node'):
             p_text = parent.get('TEXT', 'Unknown')
             for child in parent.findall('node'):
@@ -73,7 +74,7 @@ def load_and_analyze_data():
                 mare_info = {
                     'name': my_text.strip(),
                     'year': birth_year,
-                    'progeny_ids': progeny_info # 자마 ID들만 먼저 저장
+                    'progeny_ids': progeny_info 
                 }
                 if parent_text != "Unknown":
                     elite_sire_map[parent_text.strip()].append(mare_info)
@@ -87,8 +88,9 @@ def load_and_analyze_data():
         return None, None, None, f"분석 오류: {str(e)}"
 
 # --- UI 메인 ---
-st.title("🐎 암말우성 씨수말 랭킹 및 특정 조합(Nick) 분석")
+st.title("🐎 암말우성 씨수말 랭킹 및 닉(Nick) 분석 시스템")
 
+# 접속 암호: 5500
 password = st.text_input("접속 암호를 입력하세요", type="password")
 if password != "5500":
     if password: st.error("암호 오류")
@@ -98,6 +100,7 @@ elite_map, id_to_text, id_to_parent_text, err = load_and_analyze_data()
 if err:
     st.error(err); st.stop()
 
+# 사이드바 연도 필터
 start_y, end_y = st.sidebar.slider("종빈마 출생 연도 필터", 1900, 2030, (1900, 2026))
 
 results = []
@@ -106,11 +109,14 @@ for sire, daughters in elite_map.items():
     if filtered:
         results.append((sire, filtered, len(daughters)))
 
+# 랭킹순 정렬
 results.sort(key=lambda x: len(x[1]), reverse=True)
 
 if not results:
     st.warning("조건에 맞는 데이터가 없습니다.")
 else:
+    st.write(f"현재 검색 범위 내에서 총 **{len(results)}두**의 씨수말이 검색되었습니다.")
+    
     for i, (sire, daughters, total) in enumerate(results[:100], 1):
         num_mares = len(daughters)
         stars = "⭐" * num_mares
@@ -119,14 +125,17 @@ else:
         with st.expander(expander_title):
             st.markdown("<div class='hr-line'></div>", unsafe_allow_html=True)
             
-            # [핵심 로직] 현재 씨수말(예: 33위) 안에서 부마 출현 횟수 계산
-            current_sire_counts = defaultdict(int)
-            for d in daughters:
-                for p_id in d['progeny_ids']:
-                    s_name = id_to_parent_text.get(p_id, "정보 없음")
-                    current_sire_counts[s_name] += 1
+            # [핵심 로직 변경] 
+            # 단순히 횟수가 아니라 '서로 다른 엘리트 종빈마(모마)'가 몇 명인지 카운트
+            sire_to_mothers = defaultdict(set) # {부마이름: set(종빈마이름들)}
             
             for d in daughters:
+                for p_id in d['progeny_ids']:
+                    progeny_sire_name = id_to_parent_text.get(p_id, "정보 없음")
+                    sire_to_mothers[progeny_sire_name].add(d['name']) # 부마별로 모마(Daughter) 이름을 세트에 추가
+            
+            for d in daughters:
+                # 💎 종빈마 파란색 강조
                 st.markdown(f"<div class='elite-mare'>💎 {d['name']}</div>", unsafe_allow_html=True)
                 
                 if d['progeny_ids']:
@@ -134,8 +143,8 @@ else:
                         child_name = id_to_text.get(p_id, "")
                         sire_name = id_to_parent_text.get(p_id, "정보 없음")
                         
-                        # 현재 펼쳐진 씨수말의 자마들 중에서 2번 이상 나오면 적색
-                        if current_sire_counts[sire_name] >= 2:
+                        # [조건] 해당 부마와 교배한 '서로 다른 엘리트 종빈마'가 2두 이상인 경우만 적색
+                        if len(sire_to_mothers[sire_name]) >= 2:
                             sire_display = f"<span class='nick-red'>{sire_name}</span>"
                         else:
                             sire_display = f"<b>{sire_name}</b>"
