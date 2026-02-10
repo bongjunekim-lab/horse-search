@@ -8,10 +8,6 @@ from collections import defaultdict
 st.set_page_config(page_title="엘리트 혈통 추적 시스템", layout="wide")
 
 # CSS 설정: 눈부심 방지를 위한 가독성 중심 컬러 팔레트 적용
-# 종빈마: 차분한 오션 블루
-# G1 우수마: 로얄 퍼플 (중후함)
-# 엘리트 딸: 네이비 블루 (진하고 명확함)
-# 닉(Nick): 크림슨 레드 (눈이 덜 아픈 적색)
 st.markdown("""
     <style>
     .elite-mare {
@@ -81,10 +77,16 @@ def load_and_analyze_data():
                 birth_year = int(year_match.group(1)) if year_match else 0
                 
                 progeny_info = [] 
+                # [수정된 부분] 중복 방지를 위한 집합(Set) 사용 또는 확인 후 추가
+                seen_ids = set()
+                
                 for arrow in node.findall('arrowlink'):
                     dest_id = arrow.get('DESTINATION')
                     if dest_id in id_to_text:
-                        progeny_info.append(dest_id)
+                        # [핵심 수정] 이미 추가된 ID가 아닐 때만 리스트에 추가 (중복 제거)
+                        if dest_id not in seen_ids:
+                            progeny_info.append(dest_id)
+                            seen_ids.add(dest_id)
                 
                 mare_info = {
                     'name': my_text.strip(),
