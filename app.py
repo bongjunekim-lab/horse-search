@@ -7,7 +7,7 @@ from collections import defaultdict
 # 1. 페이지 설정
 st.set_page_config(page_title="엘리트 혈통 추적 시스템", layout="wide")
 
-# CSS 설정: 눈부심 방지를 위한 가독성 중심 컬러 팔레트 적용
+# CSS 설정: 눈부심 방지 전문가용 컬러 팔레트
 st.markdown("""
     <style>
     .elite-mare {
@@ -20,7 +20,7 @@ st.markdown("""
     .progeny-item {
         margin-left: 30px;
         margin-bottom: 2px;
-        color: #333333; /* 기본 글자색을 완전 검정보다 살짝 연하게 하여 눈 피로 감소 */
+        color: #333333; /* 눈이 편한 다크 그레이 */
         font-size: 1.05em;
     }
     .top-progeny {
@@ -59,6 +59,7 @@ def load_and_analyze_data():
         id_to_text = {}
         id_to_parent_text = {}
         
+        # 1차 순회: 모든 노드의 ID와 텍스트 매핑
         for parent in root.iter('node'):
             p_text = parent.get('TEXT', 'Unknown')
             for child in parent.findall('node'):
@@ -70,23 +71,55 @@ def load_and_analyze_data():
         year_pattern = re.compile(r'(\d{4})')
         elite_sire_map = defaultdict(list)
 
+        # [핵심 함수] 마명 비교를 위한 정규화 함수 (순수 이름 추출)
+        def normalize_name(text):
+            # 1. 장식 기호 및 성별 표시 제거
+            # @, #, *, 암), 수), 거), 공백 등을 제거하여 순수 이름만 남김
+            clean = text.replace('@', '').replace('#', '').replace('*', '')
+            clean = clean.replace('암)', '').replace('수)', '').replace('거)', '')
+            clean = clean.replace('가.', '').replace('나.', '').replace('다.', '')
+            
+            # 2. 괄호로 시작하는 성적 정보 제거 (이름 뒤에 붙은 (G1...) 등)
+            # 이름과 성적 사이에 주로 괄호가 있으므로 괄호 앞부분만 취함
+            clean = clean.split('(')[0]
+            
+            # 3. 앞뒤 공백 제거 및 소문자 변환 (비교 정확도 향상)
+            return clean.strip().lower()
+
         def traverse(node, parent_text="Unknown"):
             my_text = node.get('TEXT', '')
+            
+            # 엘리트 종빈마(@ 표시)인 경우
             if my_text and '@' in my_text:
                 year_match = year_pattern.search(my_text)
                 birth_year = int(year_match.group(1)) if year_match else 0
                 
                 progeny_info = [] 
-                # [수정된 부분] 중복 방지를 위한 집합(Set) 사용 또는 확인 후 추가
-                seen_ids = set()
+                seen_ids = set() # ID 중복 방지용
                 
+                # 현재 종빈마의 순수 이름 추출 (비교용)
+                mare_pure_name = normalize_name(my_text)
+
                 for arrow in node.findall('arrowlink'):
                     dest_id = arrow.get('DESTINATION')
+                    
                     if dest_id in id_to_text:
-                        # [핵심 수정] 이미 추가된 ID가 아닐 때만 리스트에 추가 (중복 제거)
-                        if dest_id not in seen_ids:
-                            progeny_info.append(dest_id)
-                            seen_ids.add(dest_id)
+                        # 1. XML ID 중복 체크
+                        if dest_id in seen_ids:
+                            continue
+
+                        child_raw_text = id_to_text[dest_id]
+                        
+                        # 2. [결정적 수정] 종빈마 이름과 자마 이름 비교 (자기 참조 방지)
+                        child_pure_name = normalize_name(child_raw_text)
+                        
+                        # 이름이 너무 비슷하면(사실상 같으면) 자마 리스트에서 제외
+                        if mare_pure_name == child_pure_name:
+                            continue
+                        
+                        # 검증 통과한 자마만 추가
+                        progeny_info.append(dest_id)
+                        seen_ids.add(dest_id)
                 
                 mare_info = {
                     'name': my_text.strip(),
@@ -156,7 +189,7 @@ else:
                         child_name = id_to_text.get(p_id, "")
                         father_name = id_to_parent_text.get(p_id, "정보 없음")
                         
-                        # --- [자마 이름 표시 로직] ---
+                        # --- [자마 이름 및 스타일 표시 로직] ---
                         
                         child_display = child_name
                         
@@ -181,7 +214,7 @@ else:
                             if '*' in prefix:
                                 is_star_daughter = True
                         
-                        # [우선순위 적용]
+                        # [스타일 우선순위 적용]
                         if is_high_g1:
                             # 1순위: G1 7승 이상 -> 로얄 퍼플
                             child_display = f"<span class='top-progeny'>{child_name}</span>"
