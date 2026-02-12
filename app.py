@@ -132,7 +132,7 @@ if err:
 # 사이드바 필터 설정
 st.sidebar.header("조회 필터")
 start_y, end_y = st.sidebar.slider("종빈마 출생 연도", 1900, 2030, (1900, 2026))
-search_query = st.sidebar.text_input("🔍 마명 검색 (종빈마/자마/씨수말)", "").strip().lower()
+search_query = st.sidebar.text_input("🔍 대형 씨수말 (엘리트 종빈마, 그자마)", "").strip().lower()
 
 # --- 필터링 로직 병합 ---
 results = []
@@ -224,3 +224,4 @@ else:
                         st.markdown(f"<div class='progeny-item'>🔗 [연결] {child_display} ({father_display})</div>", unsafe_allow_html=True)
                 else:
                     st.markdown("<div class='progeny-item' style='color:#999;'>- 연결된 화살표 자마 정보 없음</div>", unsafe_allow_html=True)
+
