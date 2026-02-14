@@ -34,7 +34,6 @@ st.markdown("""
     .star-daughter {
         color: #000000 !important; /* 검정색 */
         font-weight: 900 !important; /* 아주 진하게 (Bold) - 별표 딸 */
-        font-style: italic;
     }
     .nick-red {
         color: #C0392B !important; /* 크림슨 레드 (벽돌색) - 닉 중복 */
@@ -75,14 +74,16 @@ def load_and_analyze_data():
         # [핵심 함수] 마명 비교를 위한 정규화 함수 (순수 이름 추출)
         def normalize_name(text):
             # 1. 장식 기호 및 성별 표시 제거
+            # @, #, *, 암), 수), 거), 공백 등을 제거하여 순수 이름만 남김
             clean = text.replace('@', '').replace('#', '').replace('*', '')
             clean = clean.replace('암)', '').replace('수)', '').replace('거)', '')
             clean = clean.replace('가.', '').replace('나.', '').replace('다.', '')
             
-            # 2. 괄호로 시작하는 성적 정보 제거
+            # 2. 괄호로 시작하는 성적 정보 제거 (이름 뒤에 붙은 (G1...) 등)
+            # 이름과 성적 사이에 주로 괄호가 있으므로 괄호 앞부분만 취함
             clean = clean.split('(')[0]
             
-            # 3. 앞뒤 공백 제거 및 소문자 변환
+            # 3. 앞뒤 공백 제거 및 소문자 변환 (비교 정확도 향상)
             return clean.strip().lower()
 
         def traverse(node, parent_text="Unknown"):
@@ -96,22 +97,27 @@ def load_and_analyze_data():
                 progeny_info = [] 
                 seen_ids = set() # ID 중복 방지용
                 
+                # 현재 종빈마의 순수 이름 추출 (비교용)
                 mare_pure_name = normalize_name(my_text)
 
                 for arrow in node.findall('arrowlink'):
                     dest_id = arrow.get('DESTINATION')
                     
                     if dest_id in id_to_text:
+                        # 1. XML ID 중복 체크
                         if dest_id in seen_ids:
                             continue
 
                         child_raw_text = id_to_text[dest_id]
+                        
+                        # 2. [결정적 수정] 종빈마 이름과 자마 이름 비교 (자기 참조 방지)
                         child_pure_name = normalize_name(child_raw_text)
                         
                         # 이름이 너무 비슷하면(사실상 같으면) 자마 리스트에서 제외
                         if mare_pure_name == child_pure_name:
                             continue
                         
+                        # 검증 통과한 자마만 추가
                         progeny_info.append(dest_id)
                         seen_ids.add(dest_id)
                 
@@ -143,73 +149,28 @@ elite_map, id_to_text, id_to_parent_text, err = load_and_analyze_data()
 if err:
     st.error(err); st.stop()
 
-# --- 사이드바 설정 ---
-st.sidebar.header("검색 및 필터")
-
-# 1. 검색창 추가
-search_query = st.sidebar.text_input("🔍 마명 검색 (씨수말 또는 종빈마)", "").strip()
-
-# 2. 연도 필터
 start_y, end_y = st.sidebar.slider("종빈마 출생 연도 필터", 1900, 2030, (1900, 2026))
 
 results = []
 for sire, daughters in elite_map.items():
-    # 1단계: 연도 필터링
-    year_filtered_daughters = [d for d in daughters if start_y <= d['year'] <= end_y]
-    
-    if not year_filtered_daughters:
-        continue
+    filtered = [d for d in daughters if start_y <= d['year'] <= end_y]
+    if filtered:
+        results.append((sire, filtered, len(daughters)))
 
-    # 2단계: 검색어 필터링 및 자동 펼침(Expand) 결정
-    final_daughters = []
-    should_expand = False
-
-    if search_query:
-        # A. 씨수말 이름이 검색어와 일치(포함)하는 경우 -> 모든 딸 표시
-        if search_query.lower() in sire.lower():
-            final_daughters = year_filtered_daughters
-            should_expand = True
-        # B. 씨수말은 아니지만, 딸들 이름 중에 검색어가 있는 경우 -> 해당 딸만 표시
-        else:
-            matched_daughters = [d for d in year_filtered_daughters if search_query.lower() in d['name'].lower()]
-            if matched_daughters:
-                final_daughters = matched_daughters
-                should_expand = True
-            else:
-                final_daughters = [] # 검색 결과 없음
-    else:
-        # 검색어가 없으면 연도 필터된 전체 목록 표시 (펼치지 않음)
-        final_daughters = year_filtered_daughters
-        should_expand = False
-
-    if final_daughters:
-        # (씨수말 이름, 출력할 딸 리스트, 원래 전체 마릿수(랭킹용), 펼침 여부)
-        results.append((sire, final_daughters, len(daughters), should_expand))
-
-# 정렬: 출력되는 딸의 숫자(filtered)가 많은 순서대로 정렬
 results.sort(key=lambda x: len(x[1]), reverse=True)
 
 # G1 성적 추출용 정규식
 g1_pattern = re.compile(r'G1-(\d+)')
 
 if not results:
-    if search_query:
-        st.warning(f"'{search_query}'에 대한 검색 결과가 없습니다.")
-    else:
-        st.warning("조건에 맞는 데이터가 없습니다.")
+    st.warning("조건에 맞는 데이터가 없습니다.")
 else:
-    for i, (sire, daughters, total_count, should_expand) in enumerate(results[:100], 1):
-        num_displayed = len(daughters)
-        stars = "⭐" * num_displayed
+    for i, (sire, daughters, total) in enumerate(results[:100], 1):
+        num_mares = len(daughters)
+        stars = "⭐" * num_mares
+        expander_title = f"[{i}위] {sire} (엘리트 종빈마: {num_mares}두) {stars}"
         
-        # 제목에 전체 마릿수와 현재 표시 마릿수 구분 표시
-        if len(daughters) != total_count:
-             expander_title = f"[{i}위] {sire} (검색됨: {num_displayed}두 / 전체: {total_count}두) {stars}"
-        else:
-             expander_title = f"[{i}위] {sire} (엘리트 종빈마: {num_displayed}두) {stars}"
-        
-        # expanded 옵션을 사용하여 검색 시 자동으로 펼쳐지게 함
-        with st.expander(expander_title, expanded=should_expand):
+        with st.expander(expander_title):
             st.markdown("<div class='hr-line'></div>", unsafe_allow_html=True)
             
             # 닉(Nick) 분석 로직
