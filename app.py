@@ -34,6 +34,7 @@ st.markdown("""
     .star-daughter {
         color: #000000 !important; /* 검정색 */
         font-weight: 900 !important; /* 아주 진하게 (Bold) - 별표 딸 */
+        font-style: italic;
     }
     .nick-red {
         color: #C0392B !important; /* 크림슨 레드 (벽돌색) - 닉 중복 */
@@ -74,16 +75,14 @@ def load_and_analyze_data():
         # [핵심 함수] 마명 비교를 위한 정규화 함수 (순수 이름 추출)
         def normalize_name(text):
             # 1. 장식 기호 및 성별 표시 제거
-            # @, #, *, 암), 수), 거), 공백 등을 제거하여 순수 이름만 남김
             clean = text.replace('@', '').replace('#', '').replace('*', '')
             clean = clean.replace('암)', '').replace('수)', '').replace('거)', '')
             clean = clean.replace('가.', '').replace('나.', '').replace('다.', '')
             
-            # 2. 괄호로 시작하는 성적 정보 제거 (이름 뒤에 붙은 (G1...) 등)
-            # 이름과 성적 사이에 주로 괄호가 있으므로 괄호 앞부분만 취함
+            # 2. 괄호로 시작하는 성적 정보 제거
             clean = clean.split('(')[0]
             
-            # 3. 앞뒤 공백 제거 및 소문자 변환 (비교 정확도 향상)
+            # 3. 앞뒤 공백 제거 및 소문자 변환
             return clean.strip().lower()
 
         def traverse(node, parent_text="Unknown"):
@@ -97,27 +96,22 @@ def load_and_analyze_data():
                 progeny_info = [] 
                 seen_ids = set() # ID 중복 방지용
                 
-                # 현재 종빈마의 순수 이름 추출 (비교용)
                 mare_pure_name = normalize_name(my_text)
 
                 for arrow in node.findall('arrowlink'):
                     dest_id = arrow.get('DESTINATION')
                     
                     if dest_id in id_to_text:
-                        # 1. XML ID 중복 체크
                         if dest_id in seen_ids:
                             continue
 
                         child_raw_text = id_to_text[dest_id]
-                        
-                        # 2. [결정적 수정] 종빈마 이름과 자마 이름 비교 (자기 참조 방지)
                         child_pure_name = normalize_name(child_raw_text)
                         
                         # 이름이 너무 비슷하면(사실상 같으면) 자마 리스트에서 제외
                         if mare_pure_name == child_pure_name:
                             continue
                         
-                        # 검증 통과한 자마만 추가
                         progeny_info.append(dest_id)
                         seen_ids.add(dest_id)
                 
@@ -149,91 +143,5 @@ elite_map, id_to_text, id_to_parent_text, err = load_and_analyze_data()
 if err:
     st.error(err); st.stop()
 
-start_y, end_y = st.sidebar.slider("종빈마 출생 연도 필터", 1900, 2030, (1900, 2026))
-
-results = []
-for sire, daughters in elite_map.items():
-    filtered = [d for d in daughters if start_y <= d['year'] <= end_y]
-    if filtered:
-        results.append((sire, filtered, len(daughters)))
-
-results.sort(key=lambda x: len(x[1]), reverse=True)
-
-# G1 성적 추출용 정규식
-g1_pattern = re.compile(r'G1-(\d+)')
-
-if not results:
-    st.warning("조건에 맞는 데이터가 없습니다.")
-else:
-    for i, (sire, daughters, total) in enumerate(results[:100], 1):
-        num_mares = len(daughters)
-        stars = "⭐" * num_mares
-        expander_title = f"[{i}위] {sire} (엘리트 종빈마: {num_mares}두) {stars}"
-        
-        with st.expander(expander_title):
-            st.markdown("<div class='hr-line'></div>", unsafe_allow_html=True)
-            
-            # 닉(Nick) 분석 로직
-            sire_to_mothers = defaultdict(set)
-            for d in daughters:
-                for p_id in d['progeny_ids']:
-                    p_sire_name = id_to_parent_text.get(p_id, "정보 없음")
-                    sire_to_mothers[p_sire_name].add(d['name'])
-            
-            for d in daughters:
-                # 💎 종빈마 (차분한 파란색)
-                st.markdown(f"<div class='elite-mare'>💎 {d['name']}</div>", unsafe_allow_html=True)
-                
-                if d['progeny_ids']:
-                    for p_id in d['progeny_ids']:
-                        child_name = id_to_text.get(p_id, "")
-                        father_name = id_to_parent_text.get(p_id, "정보 없음")
-                        
-                        # --- [자마 이름 및 스타일 표시 로직] ---
-                        
-                        child_display = child_name
-                        
-                        # 1. G1 성적 확인 (보라색 조건 - 최우선)
-                        g1_match = g1_pattern.search(child_name)
-                        is_high_g1 = g1_match and int(g1_match.group(1)) >= 7
-                        
-                        # 번식 딸 체크를 위한 준비
-                        is_elite_daughter = False # @, #
-                        is_star_daughter = False  # *
-                        
-                        if '암)' in child_name:
-                            # '암)'을 기준으로 앞부분(prefix) 추출
-                            parts = child_name.split('암)')
-                            prefix = parts[0] 
-                            
-                            # 2. 번식 우수 딸 (@, #) 확인
-                            if ('@' in prefix) or ('#' in prefix):
-                                is_elite_daughter = True
-                            
-                            # 3. 별표 딸 (*) 확인
-                            if '*' in prefix:
-                                is_star_daughter = True
-                        
-                        # [스타일 우선순위 적용]
-                        if is_high_g1:
-                            # 1순위: G1 7승 이상 -> 로얄 퍼플
-                            child_display = f"<span class='top-progeny'>{child_name}</span>"
-                        elif is_elite_daughter:
-                            # 2순위: @ 또는 # 이 있는 암말 -> 네이비 블루
-                            child_display = f"<span class='elite-daughter'>{child_name}</span>"
-                        elif is_star_daughter:
-                            # 3순위: * 이 있는 암말 -> 아주 진한 검정 (Bold)
-                            child_display = f"<span class='star-daughter'>{child_name}</span>"
-                        
-                        # --- [로직 끝] ---
-
-                        # 아버지(Father) 정보: 닉(Nick) 중복 시 크림슨 레드 강조
-                        if len(sire_to_mothers[father_name]) >= 2:
-                            father_display = f"<span class='nick-red'>{father_name}</span>"
-                        else:
-                            father_display = f"<b>{father_name}</b>"
-                        
-                        st.markdown(f"<div class='progeny-item'>🔗 [연결] {child_display} ({father_display})</div>", unsafe_allow_html=True)
-                else:
-                    st.markdown("<div class='progeny-item' style='color:#999;'>- 연결된 화살표 자마 정보 없음</div>", unsafe_allow_html=True)
-
+# --- 사이드바 설정 ---
+st.sidebar.header("검색 및 필
