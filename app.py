@@ -144,4 +144,134 @@ if err:
     st.error(err); st.stop()
 
 # --- 사이드바 설정 ---
-st.sidebar.header("검색 및 필
+st.sidebar.header("검색 및 필터")
+
+# 1. 검색창 추가
+search_query = st.sidebar.text_input("🔍 마명 검색 (씨수말 또는 종빈마)", "").strip()
+
+# 2. 연도 필터
+start_y, end_y = st.sidebar.slider("종빈마 출생 연도 필터", 1900, 2030, (1900, 2026))
+
+results = []
+for sire, daughters in elite_map.items():
+    # 1단계: 연도 필터링
+    year_filtered_daughters = [d for d in daughters if start_y <= d['year'] <= end_y]
+    
+    if not year_filtered_daughters:
+        continue
+
+    # 2단계: 검색어 필터링 및 자동 펼침(Expand) 결정
+    final_daughters = []
+    should_expand = False
+
+    if search_query:
+        # A. 씨수말 이름이 검색어와 일치(포함)하는 경우 -> 모든 딸 표시
+        if search_query.lower() in sire.lower():
+            final_daughters = year_filtered_daughters
+            should_expand = True
+        # B. 씨수말은 아니지만, 딸들 이름 중에 검색어가 있는 경우 -> 해당 딸만 표시
+        else:
+            matched_daughters = [d for d in year_filtered_daughters if search_query.lower() in d['name'].lower()]
+            if matched_daughters:
+                final_daughters = matched_daughters
+                should_expand = True
+            else:
+                final_daughters = [] # 검색 결과 없음
+    else:
+        # 검색어가 없으면 연도 필터된 전체 목록 표시 (펼치지 않음)
+        final_daughters = year_filtered_daughters
+        should_expand = False
+
+    if final_daughters:
+        # (씨수말 이름, 출력할 딸 리스트, 원래 전체 마릿수(랭킹용), 펼침 여부)
+        results.append((sire, final_daughters, len(daughters), should_expand))
+
+# 정렬: 출력되는 딸의 숫자(filtered)가 많은 순서대로 정렬
+results.sort(key=lambda x: len(x[1]), reverse=True)
+
+# G1 성적 추출용 정규식
+g1_pattern = re.compile(r'G1-(\d+)')
+
+if not results:
+    if search_query:
+        st.warning(f"'{search_query}'에 대한 검색 결과가 없습니다.")
+    else:
+        st.warning("조건에 맞는 데이터가 없습니다.")
+else:
+    for i, (sire, daughters, total_count, should_expand) in enumerate(results[:100], 1):
+        num_displayed = len(daughters)
+        stars = "⭐" * num_displayed
+        
+        # 제목에 전체 마릿수와 현재 표시 마릿수 구분 표시
+        if len(daughters) != total_count:
+             expander_title = f"[{i}위] {sire} (검색됨: {num_displayed}두 / 전체: {total_count}두) {stars}"
+        else:
+             expander_title = f"[{i}위] {sire} (엘리트 종빈마: {num_displayed}두) {stars}"
+        
+        # expanded 옵션을 사용하여 검색 시 자동으로 펼쳐지게 함
+        with st.expander(expander_title, expanded=should_expand):
+            st.markdown("<div class='hr-line'></div>", unsafe_allow_html=True)
+            
+            # 닉(Nick) 분석 로직
+            sire_to_mothers = defaultdict(set)
+            for d in daughters:
+                for p_id in d['progeny_ids']:
+                    p_sire_name = id_to_parent_text.get(p_id, "정보 없음")
+                    sire_to_mothers[p_sire_name].add(d['name'])
+            
+            for d in daughters:
+                # 💎 종빈마 (차분한 파란색)
+                st.markdown(f"<div class='elite-mare'>💎 {d['name']}</div>", unsafe_allow_html=True)
+                
+                if d['progeny_ids']:
+                    for p_id in d['progeny_ids']:
+                        child_name = id_to_text.get(p_id, "")
+                        father_name = id_to_parent_text.get(p_id, "정보 없음")
+                        
+                        # --- [자마 이름 및 스타일 표시 로직] ---
+                        
+                        child_display = child_name
+                        
+                        # 1. G1 성적 확인 (보라색 조건 - 최우선)
+                        g1_match = g1_pattern.search(child_name)
+                        is_high_g1 = g1_match and int(g1_match.group(1)) >= 7
+                        
+                        # 번식 딸 체크를 위한 준비
+                        is_elite_daughter = False # @, #
+                        is_star_daughter = False  # *
+                        
+                        if '암)' in child_name:
+                            # '암)'을 기준으로 앞부분(prefix) 추출
+                            parts = child_name.split('암)')
+                            prefix = parts[0] 
+                            
+                            # 2. 번식 우수 딸 (@, #) 확인
+                            if ('@' in prefix) or ('#' in prefix):
+                                is_elite_daughter = True
+                            
+                            # 3. 별표 딸 (*) 확인
+                            if '*' in prefix:
+                                is_star_daughter = True
+                        
+                        # [스타일 우선순위 적용]
+                        if is_high_g1:
+                            # 1순위: G1 7승 이상 -> 로얄 퍼플
+                            child_display = f"<span class='top-progeny'>{child_name}</span>"
+                        elif is_elite_daughter:
+                            # 2순위: @ 또는 # 이 있는 암말 -> 네이비 블루
+                            child_display = f"<span class='elite-daughter'>{child_name}</span>"
+                        elif is_star_daughter:
+                            # 3순위: * 이 있는 암말 -> 아주 진한 검정 (Bold)
+                            child_display = f"<span class='star-daughter'>{child_name}</span>"
+                        
+                        # --- [로직 끝] ---
+
+                        # 아버지(Father) 정보: 닉(Nick) 중복 시 크림슨 레드 강조
+                        if len(sire_to_mothers[father_name]) >= 2:
+                            father_display = f"<span class='nick-red'>{father_name}</span>"
+                        else:
+                            father_display = f"<b>{father_name}</b>"
+                        
+                        st.markdown(f"<div class='progeny-item'>🔗 [연결] {child_display} ({father_display})</div>", unsafe_allow_html=True)
+                else:
+                    st.markdown("<div class='progeny-item' style='color:#999;'>- 연결된 화살표 자마 정보 없음</div>", unsafe_allow_html=True)
