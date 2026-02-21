@@ -7,7 +7,7 @@ from collections import defaultdict
 # 1. 페이지 설정
 st.set_page_config(page_title="엘리트 혈통 추적 시스템", layout="wide")
 
-# CSS 설정: 눈부심 방지 및 가독성 최적화
+# CSS 설정: 가독성 및 디자인 최적화
 st.markdown("""
     <style>
     .elite-mare {
@@ -75,39 +75,24 @@ def load_and_analyze_data():
 
         def traverse(node, parent_text="Unknown"):
             my_text = node.get('TEXT', '')
-            
             if my_text and '@' in my_text:
                 year_match = year_pattern.search(my_text)
                 birth_year = int(year_match.group(1)) if year_match else 0
-                
                 progeny_info = [] 
                 seen_ids = set()
                 mare_pure_name = normalize_name(my_text)
-
                 for arrow in node.findall('arrowlink'):
                     dest_id = arrow.get('DESTINATION')
-                    
                     if dest_id in id_to_text:
-                        if dest_id in seen_ids:
-                            continue
-
+                        if dest_id in seen_ids: continue
                         child_raw_text = id_to_text[dest_id]
                         child_pure_name = normalize_name(child_raw_text)
-                        
-                        if mare_pure_name == child_pure_name:
-                            continue
-                        
+                        if mare_pure_name == child_pure_name: continue
                         progeny_info.append(dest_id)
                         seen_ids.add(dest_id)
-                
-                mare_info = {
-                    'name': my_text.strip(),
-                    'year': birth_year,
-                    'progeny_ids': progeny_info 
-                }
+                mare_info = {'name': my_text.strip(), 'year': birth_year, 'progeny_ids': progeny_info}
                 if parent_text != "Unknown":
                     elite_sire_map[parent_text.strip()].append(mare_info)
-            
             for child in node.findall('node'):
                 traverse(child, my_text)
 
@@ -125,19 +110,16 @@ if password != "5500":
     st.stop()
 
 elite_map, id_to_text, id_to_parent_text, err = load_and_analyze_data()
-if err:
-    st.error(err); st.stop()
+if err: st.error(err); st.stop()
 
 start_y, end_y = st.sidebar.slider("종빈마 출생 연도 필터", 1900, 2030, (1900, 2026))
 
 results = []
 for sire, daughters in elite_map.items():
     filtered = [d for d in daughters if start_y <= d['year'] <= end_y]
-    if filtered:
-        results.append((sire, filtered, len(daughters)))
+    if filtered: results.append((sire, filtered, len(daughters)))
 
 results.sort(key=lambda x: len(x[1]), reverse=True)
-
 g1_pattern = re.compile(r'G1-(\d+)')
 
 if not results:
@@ -151,6 +133,7 @@ else:
         with st.expander(expander_title):
             st.markdown("<div class='hr-line'></div>", unsafe_allow_html=True)
             
+            # --- 씨수말 클릭 시마다 닉 분석 및 색상 배정 새로 시작 ---
             sire_to_mothers = defaultdict(set)
             for d in daughters:
                 for p_id in d['progeny_ids']:
@@ -159,32 +142,33 @@ else:
             
             nick_sires = [s for s, mothers in sire_to_mothers.items() if len(mothers) >= 2]
             
-            # --- [핵심 개선] 가장 명확한 6가지 핵심 색상 팔레트 ---
-            general_palette = [
-                ("#D32F2F", "#FFEBEE"), # 1. 강렬한 빨강 (Red)
-                ("#E64A19", "#FBE9E7"), # 2. 강렬한 주황 (Orange)
-                ("#00796B", "#E0F2F1"), # 3. 짙은 청록 (Teal)
-                ("#1976D2", "#E3F2FD"), # 4. 시원한 파랑 (Blue)
-                ("#388E3C", "#E8F5E9"), # 5. 짙은 녹색 (Green)
-                ("#7B1FA2", "#F3E5F5")  # 6. 짙은 보라 (Purple)
+            # 요청하신 5가지 핵심 색상 순서 고정
+            fixed_palette = [
+                ("#D32F2F", "#FFEBEE"), # 빨강
+                ("#00796B", "#E0F2F1"), # 청록
+                ("#7B1FA2", "#F3E5F5"), # 보라
+                ("#388E3C", "#E8F5E9"), # 녹색
+                ("#E64A19", "#FBE9E7")  # 주황
             ]
             
             nick_color_map = {}
-            p_idx = 0
+            color_idx = 0
             
+            # 닉으로 판명된 부마들에게 순서대로 색상 부여
             for ns in nick_sires:
                 ns_lower = ns.lower()
-                # 1. 고정 마명 처리 (요청하신 3마리는 무조건 이 색상 배정)
+                # Roberto, Mr. Prospector, Seattle Slew 등 주요 마명은 지정 색상 유지 시도
                 if "roberto" in ns_lower:
-                    nick_color_map[ns] = ("#388E3C", "#E8F5E9") # 녹색
-                elif "mr. prospector" in ns_lower or "mr.prospector" in ns_lower:
-                    nick_color_map[ns] = ("#1976D2", "#E3F2FD") # 파랑
+                    nick_color_map[ns] = ("#388E3C", "#E8F5E9") # 녹색 고정
                 elif "seattle slew" in ns_lower:
-                    nick_color_map[ns] = ("#7B1FA2", "#F3E5F5") # 보라
+                    nick_color_map[ns] = ("#7B1FA2", "#F3E5F5") # 보라 고정
+                elif "mr. prospector" in ns_lower or "mr.prospector" in ns_lower:
+                    nick_color_map[ns] = ("#1976D2", "#E3F2FD") # 파랑 고정
                 else:
-                    # 2. 그 외의 마명들은 6가지 색상 안에서만 빙글빙글 돌며 배정 (애매한 색 제거)
-                    nick_color_map[ns] = general_palette[p_idx % len(general_palette)]
-                    p_idx += 1
+                    # 그 외에는 요청하신 순서(빨강-청록-보라-녹색-주황)대로 배정
+                    # 이미 고정 마명에서 사용된 색은 건너뛰고 배정하도록 인덱스 관리
+                    nick_color_map[ns] = fixed_palette[color_idx % len(fixed_palette)]
+                    color_idx += 1
 
             for d in daughters:
                 st.markdown(f"<div class='elite-mare'>💎 {d['name']}</div>", unsafe_allow_html=True)
@@ -194,31 +178,21 @@ else:
                         child_name = id_to_text.get(p_id, "")
                         father_name = id_to_parent_text.get(p_id, "정보 없음")
                         
+                        # 스타일 처리 (G1 성적 및 번식마 여부)
                         child_display = child_name
-                        
                         g1_match = g1_pattern.search(child_name)
                         is_high_g1 = g1_match and int(g1_match.group(1)) >= 7
-                        
-                        is_elite_daughter = False 
-                        is_star_daughter = False  
-                        
+                        is_elite_daughter = False; is_star_daughter = False  
                         if '암)' in child_name:
-                            parts = child_name.split('암)')
-                            prefix = parts[0] 
-                            
-                            if ('@' in prefix) or ('#' in prefix):
-                                is_elite_daughter = True
-                            if '*' in prefix:
-                                is_star_daughter = True
+                            parts = child_name.split('암)'); prefix = parts[0] 
+                            if ('@' in prefix) or ('#' in prefix): is_elite_daughter = True
+                            if '*' in prefix: is_star_daughter = True
                         
-                        if is_high_g1:
-                            child_display = f"<span class='top-progeny'>{child_name}</span>"
-                        elif is_elite_daughter:
-                            child_display = f"<span class='elite-daughter'>{child_name}</span>"
-                        elif is_star_daughter:
-                            child_display = f"<span class='star-daughter'>{child_name}</span>"
+                        if is_high_g1: child_display = f"<span class='top-progeny'>{child_name}</span>"
+                        elif is_elite_daughter: child_display = f"<span class='elite-daughter'>{child_name}</span>"
+                        elif is_star_daughter: child_display = f"<span class='star-daughter'>{child_name}</span>"
                         
-                        # --- [하이라이트 박스 렌더링] ---
+                        # 닉(Nick) 색상 적용
                         if father_name in nick_color_map:
                             text_color, bg_color = nick_color_map[father_name]
                             father_display = f"<span style='color:{text_color}; background-color:{bg_color}; font-weight:900; padding:2px 6px; border-radius:4px; border: 1px solid {text_color}60;'>{father_name}</span>"
