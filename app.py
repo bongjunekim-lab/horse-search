@@ -7,7 +7,7 @@ from collections import defaultdict
 # 1. 페이지 설정
 st.set_page_config(page_title="엘리트 혈통 추적 시스템", layout="wide")
 
-# CSS 설정: 닉 박스 내 글자 굵기 조절 및 부마 강조 유지
+# CSS 설정: 자마와 부마의 스타일 가이드 고정
 st.markdown("""
     <style>
     .elite-mare {
@@ -23,7 +23,7 @@ st.markdown("""
         color: #333333;
         font-size: 1.05em;
     }
-    /* 우수 자마(@, #, G1-7) 보라색 */
+    /* @, #, G1-7 자마는 모두 보라색 */
     .premium-progeny {
         color: #800080 !important;
         font-weight: bold;
@@ -32,8 +32,8 @@ st.markdown("""
         color: #000000 !important;
         font-weight: 900 !important;
     }
-    /* 우수 자마를 배출한 부마 진파란색 + 굵게 */
-    .sire-deep-blue {
+    /* 핵심 부마 전용: 진파란색 + 아주 굵게(900) */
+    .sire-deep-blue-bold {
         color: #0000FF !important;
         font-weight: 900 !important;
     }
@@ -50,8 +50,7 @@ def load_and_analyze_data():
     if not os.path.exists(file_path):
         return None, None, None, "파일을 찾을 수 없습니다."
     try:
-        tree = ET.parse(file_path)
-        root = tree.getroot()
+        tree = ET.parse(file_path); root = tree.getroot()
         id_to_text = {}; id_to_parent_text = {}
         for parent in root.iter('node'):
             p_text = parent.get('TEXT', 'Unknown')
@@ -85,14 +84,10 @@ def load_and_analyze_data():
                         progeny_info.append(dest_id)
                         seen_ids.add(dest_id)
                 mare_info = {'name': my_text.strip(), 'year': birth_year, 'progeny_ids': progeny_info}
-                if parent_text != "Unknown":
-                    elite_sire_map[parent_text.strip()].append(mare_info)
-            for child in node.findall('node'):
-                traverse(child, my_text)
-        traverse(root)
-        return elite_sire_map, id_to_text, id_to_parent_text, None
-    except Exception as e:
-        return None, None, None, f"분석 오류: {str(e)}"
+                if parent_text != "Unknown": elite_sire_map[parent_text.strip()].append(mare_info)
+            for child in node.findall('node'): traverse(child, my_text)
+        traverse(root); return elite_sire_map, id_to_text, id_to_parent_text, None
+    except Exception as e: return None, None, None, f"분석 오류: {str(e)}"
 
 # UI 메인
 st.title("🐎 암말우성 씨수말 랭킹 및 1대 자마 성적 분석 (G1-7 기준)")
@@ -102,25 +97,20 @@ if password != "5500":
     st.stop()
 
 elite_map, id_to_text, id_to_parent_text, err = load_and_analyze_data()
-if err:
-    st.error(err); st.stop()
+if err: st.error(err); st.stop()
 
 start_y, end_y = st.sidebar.slider("종빈마 출생 연도 필터", 1900, 2030, (1900, 2026))
-
 results = []
 for sire, daughters in elite_map.items():
     filtered = [d for d in daughters if start_y <= d['year'] <= end_y]
-    if filtered:
-        results.append((sire, filtered, len(daughters)))
+    if filtered: results.append((sire, filtered, len(daughters)))
 results.sort(key=lambda x: len(x[1]), reverse=True)
 g1_pattern = re.compile(r'G1-(\d+)')
 
-if not results:
-    st.warning("조건에 맞는 데이터가 없습니다.")
+if not results: st.warning("조건에 맞는 데이터가 없습니다.")
 else:
     for i, (sire, daughters, total) in enumerate(results[:100], 1):
-        num_mares = len(daughters)
-        stars = "⭐" * num_mares
+        num_mares = len(daughters); stars = "⭐" * num_mares
         with st.expander(f"[{i}위] {sire} (엘리트 종빈마: {num_mares}두) {stars}"):
             st.markdown("<div class='hr-line'></div>", unsafe_allow_html=True)
             sire_to_mothers = defaultdict(set)
@@ -128,7 +118,6 @@ else:
                 for p_id in d['progeny_ids']:
                     p_sire_name = id_to_parent_text.get(p_id, "정보 없음")
                     sire_to_mothers[p_sire_name].add(d['name'])
-            
             nick_sires = [s for s, mothers in sire_to_mothers.items() if len(mothers) >= 2]
             bg_palette = ["#FFEBEE", "#E0F2F1", "#F3E5F5", "#E8F5E9", "#FBE9E7"]
             border_palette = ["#D32F2F", "#00796B", "#7B1FA2", "#388E3C", "#E64A19"]
@@ -144,36 +133,30 @@ else:
                     for p_id in d['progeny_ids']:
                         child_name = id_to_text.get(p_id, "")
                         father_name = id_to_parent_text.get(p_id, "정보 없음")
-                        
                         g1_match = g1_pattern.search(child_name)
                         is_high_g1 = g1_match and int(g1_match.group(1)) >= 7
                         is_elite_daughter = ('@' in child_name or '#' in child_name) and '암)' in child_name
                         
-                        # [1] 자마 스타일 (보라색 유지)
+                        # [1] 자마 스타일
                         if is_high_g1 or is_elite_daughter:
                             child_display = f"<span class='premium-progeny'>{child_name}</span>"
                         elif '*' in child_name and '암)' in child_name:
                             child_display = f"<span class='star-daughter'>{child_name}</span>"
-                        else:
-                            child_display = child_name
+                        else: child_display = child_name
                         
-                        # [2] 부마 스타일 설정
+                        # [2] 부마 스타일: 핵심 부마(@, #, G1-7 배출)는 무조건 진파란색 + 굵게(900)
                         if is_high_g1 or is_elite_daughter:
-                            # 우수 자마 배출 부마 -> 진파란색 적용
                             if father_name in nick_style_map:
-                                border_c, bg_c = nick_style_map[father_name]
-                                # 수정 포인트: font-weight를 400(가늘게)으로 조정하여 눈부심 방지
-                                father_display = f"<span style='color:#0000FF; background-color:{bg_c}; font-weight:400; padding:2px 6px; border-radius:4px; border: 1px solid {border_c}60;'>{father_name}</span>"
+                                b_c, bg_c = nick_style_map[father_name]
+                                # 닉 박스 적용 시에도 폰트 굵기를 900으로 고정
+                                father_display = f"<span style='color:#0000FF; background-color:{bg_c}; font-weight:900; padding:2px 6px; border-radius:4px; border: 1px solid {b_c}60;'>{father_name}</span>"
                             else:
-                                # 닉이 아닌 경우 기존처럼 굵게 강조
-                                father_display = f"<span class='sire-deep-blue'>{father_name}</span>"
+                                father_display = f"<span class='sire-deep-blue-bold'>{father_name}</span>"
                         else:
-                            # 일반 자마의 부마
+                            # 일반 자마의 부마는 이전처럼 가늘게(기본 굵기) 하여 피로도 감소
                             if father_name in nick_style_map:
-                                border_c, bg_c = nick_style_map[father_name]
-                                # 수정 포인트: font-weight를 400(가늘게)으로 조정
-                                father_display = f"<span style='color:{border_c}; background-color:{bg_c}; font-weight:400; padding:2px 6px; border-radius:4px; border: 1px solid {border_c}60;'>{father_name}</span>"
-                            else:
-                                father_display = f"<b>{father_name}</b>"
+                                b_c, bg_c = nick_style_map[father_name]
+                                father_display = f"<span style='color:{b_c}; background-color:{bg_c}; font-weight:400; padding:2px 6px; border-radius:4px; border: 1px solid {b_c}60;'>{father_name}</span>"
+                            else: father_display = f"<b>{father_name}</b>"
                         
                         st.markdown(f"<div class='progeny-item'>🔗 [연결] {child_display} ({father_display})</div>", unsafe_allow_html=True)
