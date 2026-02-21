@@ -7,11 +7,11 @@ from collections import defaultdict
 # 1. 페이지 설정
 st.set_page_config(page_title="엘리트 혈통 추적 시스템", layout="wide")
 
-# CSS 설정: 눈부심 방지 전문가용 컬러 팔레트
+# CSS 설정: 눈부심 방지 및 가독성 최적화
 st.markdown("""
     <style>
     .elite-mare {
-        color: #0077CC !important; /* 차분한 오션 블루 */
+        color: #0077CC !important;
         font-weight: bold;
         font-size: 1.25em;
         margin-top: 10px;
@@ -19,25 +19,21 @@ st.markdown("""
     }
     .progeny-item {
         margin-left: 30px;
-        margin-bottom: 2px;
-        color: #333333; /* 눈이 편한 다크 그레이 */
+        margin-bottom: 3px;
+        color: #333333;
         font-size: 1.05em;
     }
     .top-progeny {
-        color: #800080 !important; /* 로얄 퍼플 (보라색) - G1 7승 이상 */
+        color: #800080 !important; /* G1 7승 이상 보라색 */
         font-weight: bold;
     }
     .elite-daughter {
-        color: #003366 !important; /* 네이비 블루 (진한 파랑) - 번식 우수 딸 */
+        color: #003366 !important; /* 번식 우수 딸 네이비 */
         font-weight: bold;
     }
     .star-daughter {
-        color: #000000 !important; /* 검정색 */
-        font-weight: 900 !important; /* 아주 진하게 (Bold) - 별표 딸 */
-    }
-    .nick-red {
-        color: #C0392B !important; /* 크림슨 레드 (벽돌색) - 닉 중복 */
-        font-weight: bold;
+        color: #000000 !important;
+        font-weight: 900 !important;
     }
     .hr-line {
         margin: 10px 0;
@@ -59,7 +55,6 @@ def load_and_analyze_data():
         id_to_text = {}
         id_to_parent_text = {}
         
-        # 1차 순회: 모든 노드의 ID와 텍스트 매핑
         for parent in root.iter('node'):
             p_text = parent.get('TEXT', 'Unknown')
             for child in parent.findall('node'):
@@ -71,7 +66,6 @@ def load_and_analyze_data():
         year_pattern = re.compile(r'(\d{4})')
         elite_sire_map = defaultdict(list)
 
-        # [핵심 함수] 마명 비교를 위한 정규화 함수 (순수 이름 추출)
         def normalize_name(text):
             clean = text.replace('@', '').replace('#', '').replace('*', '')
             clean = clean.replace('암)', '').replace('수)', '').replace('거)', '')
@@ -157,18 +151,24 @@ else:
         with st.expander(expander_title):
             st.markdown("<div class='hr-line'></div>", unsafe_allow_html=True)
             
-            # 닉(Nick) 분석 로직
             sire_to_mothers = defaultdict(set)
             for d in daughters:
                 for p_id in d['progeny_ids']:
                     p_sire_name = id_to_parent_text.get(p_id, "정보 없음")
                     sire_to_mothers[p_sire_name].add(d['name'])
             
-            # --- [추가된 부분] 닉(Nick) 다중 색상 동적 할당 로직 ---
             nick_sires = [s for s, mothers in sire_to_mothers.items() if len(mothers) >= 2]
             
-            # 색상 팔레트: 기본 적색, 녹색, 파란색, 마젠타(자주색), 오렌지색, 청록색
-            palette = ["#C0392B", "#229954", "#2E86C1", "#D100D1", "#D35400", "#16A085"]
+            # --- [개선된 부분] 확연히 눈에 띄는 고대비 텍스트+배경색(형광펜) 조합 ---
+            palette = [
+                ("#E74C3C", "#FDEDEC"), # 1. 쨍한 빨강 + 연핑크 배경 (기본)
+                ("#1E8449", "#EAFAF1"), # 2. 짙은 녹색 + 연녹색 배경 (Roberto 등)
+                ("#2874A6", "#EBF5FB"), # 3. 짙은 파랑 + 연파랑 배경 (Mr. Prospector 등)
+                ("#8E44AD", "#F4ECF7"), # 4. 짙은 보라 + 연보라 배경 (Seattle Slew 등)
+                ("#D35400", "#FEF5E7"), # 5. 짙은 주황 + 연주황 배경
+                ("#117A65", "#E8F8F5"), # 6. 청록색 + 연청록 배경
+            ]
+            
             nick_color_map = {}
             p_idx = 0
             
@@ -176,23 +176,21 @@ else:
                 ns_lower = ns.lower()
                 # 1. 사용자가 요청한 특정 마명은 지정된 색상으로 고정
                 if "roberto" in ns_lower:
-                    nick_color_map[ns] = "#229954" # 녹색
+                    nick_color_map[ns] = ("#1E8449", "#EAFAF1") # 녹색
                 elif "mr. prospector" in ns_lower or "mr.prospector" in ns_lower:
-                    nick_color_map[ns] = "#2E86C1" # 파란색
+                    nick_color_map[ns] = ("#2874A6", "#EBF5FB") # 파랑
                 elif "seattle slew" in ns_lower:
-                    nick_color_map[ns] = "#D100D1" # 마젠타
+                    nick_color_map[ns] = ("#8E44AD", "#F4ECF7") # 보라
                 else:
-                    # 2. 그 외 닉들은 팔레트에서 순서대로 할당 (기본은 첫 번째인 적색)
-                    # 고정으로 쓴 색상과 겹치지 않게 인덱스 점프
-                    while p_idx < len(palette) and palette[p_idx] in ["#229954", "#2E86C1", "#D100D1"]:
+                    # 2. 그 외 닉들은 겹치지 않게 순차 할당
+                    while p_idx < len(palette) and palette[p_idx][0] in ["#1E8449", "#2874A6", "#8E44AD"]:
                         p_idx += 1
                         
                     if p_idx < len(palette):
                         nick_color_map[ns] = palette[p_idx]
                         p_idx += 1
                     else:
-                        nick_color_map[ns] = "#C0392B" # 팔레트를 다 쓰면 기본 적색
-            # -----------------------------------------------------------
+                        nick_color_map[ns] = ("#E74C3C", "#FDEDEC") # 남는 색이 없으면 강렬한 빨강
 
             for d in daughters:
                 st.markdown(f"<div class='elite-mare'>💎 {d['name']}</div>", unsafe_allow_html=True)
@@ -216,7 +214,6 @@ else:
                             
                             if ('@' in prefix) or ('#' in prefix):
                                 is_elite_daughter = True
-                            
                             if '*' in prefix:
                                 is_star_daughter = True
                         
@@ -227,13 +224,13 @@ else:
                         elif is_star_daughter:
                             child_display = f"<span class='star-daughter'>{child_name}</span>"
                         
-                        # --- [수정된 부분] 아버지 정보 색상 적용 ---
+                        # --- [하이라이트 효과가 들어간 부마 이름 표시] ---
                         if father_name in nick_color_map:
-                            color = nick_color_map[father_name]
-                            father_display = f"<span style='color:{color}; font-weight:bold;'>{father_name}</span>"
+                            text_color, bg_color = nick_color_map[father_name]
+                            # 박스 테두리와 배경색을 줘서 뱃지(Badge)처럼 확실히 보이게 만듦
+                            father_display = f"<span style='color:{text_color}; background-color:{bg_color}; font-weight:900; padding:2px 6px; border-radius:4px; border: 1px solid {text_color}60;'>{father_name}</span>"
                         else:
                             father_display = f"<b>{father_name}</b>"
-                        # -------------------------------------------
                         
                         st.markdown(f"<div class='progeny-item'>🔗 [연결] {child_display} ({father_display})</div>", unsafe_allow_html=True)
                 else:
