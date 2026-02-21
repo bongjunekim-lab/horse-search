@@ -35,6 +35,11 @@ st.markdown("""
         color: #000000 !important;
         font-weight: 900 !important;
     }
+    /* 추가된 부마 전용 스타일: 진파란색 + 굵게 */
+    .sire-bold {
+        color: #003366 !important;
+        font-weight: 900 !important;
+    }
     .hr-line {
         margin: 10px 0;
         border-bottom: 1px solid #ddd;
@@ -133,7 +138,6 @@ else:
         with st.expander(expander_title):
             st.markdown("<div class='hr-line'></div>", unsafe_allow_html=True)
             
-            # --- 씨수말 클릭 시마다 닉 분석 및 색상 배정 새로 시작 ---
             sire_to_mothers = defaultdict(set)
             for d in daughters:
                 for p_id in d['progeny_ids']:
@@ -142,7 +146,6 @@ else:
             
             nick_sires = [s for s, mothers in sire_to_mothers.items() if len(mothers) >= 2]
             
-            # 요청하신 5가지 핵심 색상 순서 고정
             fixed_palette = [
                 ("#D32F2F", "#FFEBEE"), # 빨강
                 ("#00796B", "#E0F2F1"), # 청록
@@ -154,19 +157,15 @@ else:
             nick_color_map = {}
             color_idx = 0
             
-            # 닉으로 판명된 부마들에게 순서대로 색상 부여
             for ns in nick_sires:
                 ns_lower = ns.lower()
-                # Roberto, Mr. Prospector, Seattle Slew 등 주요 마명은 지정 색상 유지 시도
                 if "roberto" in ns_lower:
-                    nick_color_map[ns] = ("#388E3C", "#E8F5E9") # 녹색 고정
+                    nick_color_map[ns] = ("#388E3C", "#E8F5E9")
                 elif "seattle slew" in ns_lower:
-                    nick_color_map[ns] = ("#7B1FA2", "#F3E5F5") # 보라 고정
+                    nick_color_map[ns] = ("#7B1FA2", "#F3E5F5")
                 elif "mr. prospector" in ns_lower or "mr.prospector" in ns_lower:
-                    nick_color_map[ns] = ("#1976D2", "#E3F2FD") # 파랑 고정
+                    nick_color_map[ns] = ("#1976D2", "#E3F2FD")
                 else:
-                    # 그 외에는 요청하신 순서(빨강-청록-보라-녹색-주황)대로 배정
-                    # 이미 고정 마명에서 사용된 색은 건너뛰고 배정하도록 인덱스 관리
                     nick_color_map[ns] = fixed_palette[color_idx % len(fixed_palette)]
                     color_idx += 1
 
@@ -183,19 +182,28 @@ else:
                         g1_match = g1_pattern.search(child_name)
                         is_high_g1 = g1_match and int(g1_match.group(1)) >= 7
                         is_elite_daughter = False; is_star_daughter = False  
+                        
                         if '암)' in child_name:
                             parts = child_name.split('암)'); prefix = parts[0] 
                             if ('@' in prefix) or ('#' in prefix): is_elite_daughter = True
                             if '*' in prefix: is_star_daughter = True
                         
+                        # 자마 스타일링
                         if is_high_g1: child_display = f"<span class='top-progeny'>{child_name}</span>"
                         elif is_elite_daughter: child_display = f"<span class='elite-daughter'>{child_name}</span>"
                         elif is_star_daughter: child_display = f"<span class='star-daughter'>{child_name}</span>"
                         
-                        # 닉(Nick) 색상 적용
+                        # --- 부마(Sire) 스타일링 핵심 로직 ---
+                        # 1. 닉(Nick) 색상이 있는 경우 (최우선)
                         if father_name in nick_color_map:
                             text_color, bg_color = nick_color_map[father_name]
                             father_display = f"<span style='color:{text_color}; background-color:{bg_color}; font-weight:900; padding:2px 6px; border-radius:4px; border: 1px solid {text_color}60;'>{father_name}</span>"
+                        
+                        # 2. @, # 또는 G1-7성적 자마의 부마인 경우 진파란색 굵게 표시
+                        elif is_elite_daughter or is_high_g1:
+                            father_display = f"<span class='sire-bold'>{father_name}</span>"
+                        
+                        # 3. 일반 부마
                         else:
                             father_display = f"<b>{father_name}</b>"
                         
