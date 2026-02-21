@@ -7,7 +7,7 @@ from collections import defaultdict
 # 1. 페이지 설정
 st.set_page_config(page_title="엘리트 혈통 추적 시스템", layout="wide")
 
-# CSS 설정: 가독성 및 디자인 최적화
+# CSS 설정: 자마와 부마의 스타일을 엄격히 분리
 st.markdown("""
     <style>
     .elite-mare {
@@ -24,20 +24,20 @@ st.markdown("""
         font-size: 1.05em;
     }
     .top-progeny {
-        color: #800080 !important; /* G1 7승 이상 보라색 */
+        color: #800080 !important; /* 자마: G1 7승 이상 보라색 */
         font-weight: bold;
     }
     .elite-daughter {
-        color: #003366 !important; /* 번식 우수 딸 네이비 */
+        color: #003366 !important; /* 자마: @, # 번식 우수 딸 네이비 */
         font-weight: bold;
     }
     .star-daughter {
         color: #000000 !important;
         font-weight: 900 !important;
     }
-    /* 추가된 부마 전용 스타일: 진파란색 + 굵게 */
-    .sire-bold {
-        color: #003366 !important;
+    /* 요청하신 부마 전용 스타일: 선명한 진파란색 + 아주 굵게 */
+    .sire-highlight {
+        color: #0000FF !important;
         font-weight: 900 !important;
     }
     .hr-line {
@@ -56,9 +56,7 @@ def load_and_analyze_data():
     try:
         tree = ET.parse(file_path)
         root = tree.getroot()
-        
-        id_to_text = {}
-        id_to_parent_text = {}
+        id_to_text = {}; id_to_parent_text = {}
         
         for parent in root.iter('node'):
             p_text = parent.get('TEXT', 'Unknown')
@@ -98,17 +96,15 @@ def load_and_analyze_data():
                 mare_info = {'name': my_text.strip(), 'year': birth_year, 'progeny_ids': progeny_info}
                 if parent_text != "Unknown":
                     elite_sire_map[parent_text.strip()].append(mare_info)
-            for child in node.findall('node'):
-                traverse(child, my_text)
+            for child in node.findall('node'): traverse(child, my_text)
 
         traverse(root)
         return elite_sire_map, id_to_text, id_to_parent_text, None
     except Exception as e:
         return None, None, None, f"분석 오류: {str(e)}"
 
-# --- UI 메인 ---
+# UI 메인
 st.title("🐎 암말우성 씨수말 랭킹 및 1대 자마 성적 분석 (G1-7 기준)")
-
 password = st.text_input("접속 암호를 입력하세요", type="password")
 if password != "5500":
     if password: st.error("암호 오류")
@@ -137,7 +133,6 @@ else:
         
         with st.expander(expander_title):
             st.markdown("<div class='hr-line'></div>", unsafe_allow_html=True)
-            
             sire_to_mothers = defaultdict(set)
             for d in daughters:
                 for p_id in d['progeny_ids']:
@@ -145,65 +140,43 @@ else:
                     sire_to_mothers[p_sire_name].add(d['name'])
             
             nick_sires = [s for s, mothers in sire_to_mothers.items() if len(mothers) >= 2]
-            
-            fixed_palette = [
-                ("#D32F2F", "#FFEBEE"), # 빨강
-                ("#00796B", "#E0F2F1"), # 청록
-                ("#7B1FA2", "#F3E5F5"), # 보라
-                ("#388E3C", "#E8F5E9"), # 녹색
-                ("#E64A19", "#FBE9E7")  # 주황
-            ]
-            
+            fixed_palette = [("#D32F2F", "#FFEBEE"), ("#00796B", "#E0F2F1"), ("#7B1FA2", "#F3E5F5"), ("#388E3C", "#E8F5E9"), ("#E64A19", "#FBE9E7")]
             nick_color_map = {}
             color_idx = 0
-            
             for ns in nick_sires:
                 ns_lower = ns.lower()
-                if "roberto" in ns_lower:
-                    nick_color_map[ns] = ("#388E3C", "#E8F5E9")
-                elif "seattle slew" in ns_lower:
-                    nick_color_map[ns] = ("#7B1FA2", "#F3E5F5")
-                elif "mr. prospector" in ns_lower or "mr.prospector" in ns_lower:
-                    nick_color_map[ns] = ("#1976D2", "#E3F2FD")
+                if "roberto" in ns_lower: nick_color_map[ns] = ("#388E3C", "#E8F5E9")
+                elif "seattle slew" in ns_lower: nick_color_map[ns] = ("#7B1FA2", "#F3E5F5")
+                elif "mr. prospector" in ns_lower or "mr.prospector" in ns_lower: nick_color_map[ns] = ("#1976D2", "#E3F2FD")
                 else:
                     nick_color_map[ns] = fixed_palette[color_idx % len(fixed_palette)]
                     color_idx += 1
 
             for d in daughters:
                 st.markdown(f"<div class='elite-mare'>💎 {d['name']}</div>", unsafe_allow_html=True)
-                
                 if d['progeny_ids']:
                     for p_id in d['progeny_ids']:
                         child_name = id_to_text.get(p_id, "")
                         father_name = id_to_parent_text.get(p_id, "정보 없음")
                         
-                        # 스타일 처리 (G1 성적 및 번식마 여부)
-                        child_display = child_name
                         g1_match = g1_pattern.search(child_name)
                         is_high_g1 = g1_match and int(g1_match.group(1)) >= 7
-                        is_elite_daughter = False; is_star_daughter = False  
+                        is_elite_daughter = ('@' in child_name or '#' in child_name) and '암)' in child_name
+                        is_star_daughter = '*' in child_name and '암)' in child_name
                         
-                        if '암)' in child_name:
-                            parts = child_name.split('암)'); prefix = parts[0] 
-                            if ('@' in prefix) or ('#' in prefix): is_elite_daughter = True
-                            if '*' in prefix: is_star_daughter = True
-                        
-                        # 자마 스타일링
+                        # [1] 자마(딸/아들) 스타일 설정 - 기존 색상 유지
                         if is_high_g1: child_display = f"<span class='top-progeny'>{child_name}</span>"
                         elif is_elite_daughter: child_display = f"<span class='elite-daughter'>{child_name}</span>"
                         elif is_star_daughter: child_display = f"<span class='star-daughter'>{child_name}</span>"
+                        else: child_display = child_name
                         
-                        # --- 부마(Sire) 스타일링 핵심 로직 ---
-                        # 1. 닉(Nick) 색상이 있는 경우 (최우선)
+                        # [2] 부마 스타일 설정 - @, #, G1-7인 자마의 부마만 진파란색 강조
                         if father_name in nick_color_map:
                             text_color, bg_color = nick_color_map[father_name]
                             father_display = f"<span style='color:{text_color}; background-color:{bg_color}; font-weight:900; padding:2px 6px; border-radius:4px; border: 1px solid {text_color}60;'>{father_name}</span>"
-                        
-                        # 2. @, # 또는 G1-7성적 자마의 부마인 경우 진파란색 굵게 표시
                         elif is_elite_daughter or is_high_g1:
-                            father_display = f"<span class='sire-bold'>{father_name}</span>"
-                        
-                        # 3. 일반 부마
+                            # 핵심 수정 포인트: 자마가 @, #, G1-7일 때 그 부마만 진파란색으로 표시
+                            father_display = f"<span class='sire-highlight'>{father_name}</span>"
                         else:
                             father_display = f"<b>{father_name}</b>"
                         
