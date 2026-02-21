@@ -7,7 +7,7 @@ from collections import defaultdict
 # 1. 페이지 설정
 st.set_page_config(page_title="엘리트 혈통 추적 시스템", layout="wide")
 
-# CSS 설정: 폰트 색상 우선순위 및 가시성 최적화
+# CSS 설정: 폰트 색상 및 가독성 최적화
 st.markdown("""
     <style>
     .elite-mare {
@@ -50,8 +50,10 @@ def load_and_analyze_data():
     if not os.path.exists(file_path):
         return None, None, None, "파일을 찾을 수 없습니다."
     try:
-        tree = ET.parse(file_path); root = tree.getroot()
-        id_to_text = {}; id_to_parent_text = {}
+        tree = ET.parse(file_path)
+        root = tree.getroot()
+        id_to_text = {}
+        id_to_parent_text = {}
         for parent in root.iter('node'):
             p_text = parent.get('TEXT', 'Unknown')
             for child in parent.findall('node'):
@@ -61,18 +63,21 @@ def load_and_analyze_data():
                     id_to_parent_text[c_id] = p_text
         year_pattern = re.compile(r'(\d{4})')
         elite_sire_map = defaultdict(list)
+        
         def normalize_name(text):
             clean = text.replace('@', '').replace('#', '').replace('*', '')
             clean = clean.replace('암)', '').replace('수)', '').replace('거)', '')
             clean = clean.replace('가.', '').replace('나.', '').replace('다.', '')
             clean = clean.split('(')[0]
             return clean.strip().lower()
+            
         def traverse(node, parent_text="Unknown"):
             my_text = node.get('TEXT', '')
             if my_text and '@' in my_text:
                 year_match = year_pattern.search(my_text)
                 birth_year = int(year_match.group(1)) if year_match else 0
-                progeny_info = [] ; seen_ids = set()
+                progeny_info = []
+                seen_ids = set()
                 mare_pure_name = normalize_name(my_text)
                 for arrow in node.findall('arrowlink'):
                     dest_id = arrow.get('DESTINATION')
@@ -84,11 +89,15 @@ def load_and_analyze_data():
                         progeny_info.append(dest_id)
                         seen_ids.add(dest_id)
                 mare_info = {'name': my_text.strip(), 'year': birth_year, 'progeny_ids': progeny_info}
-                if parent_text != "Unknown": elite_sire_map[parent_text.strip()].append(mare_info)
-            for child in node.findall('node'): traverse(child, my_text)
+                if parent_text != "Unknown":
+                    elite_sire_map[parent_text.strip()].append(mare_info)
+            for child in node.findall('node'):
+                traverse(child, my_text)
+        
         traverse(root)
         return elite_sire_map, id_to_text, id_to_parent_text, None
-    except Exception as e: return None, None, None, f"분석 오류: {str(e)}"
+    except Exception as e:
+        return None, None, None, f"분석 오류: {str(e)}"
 
 # UI 메인
 st.title("🐎 암말우성 씨수말 랭킹 및 1대 자마 성적 분석 (G1-7 기준)")
@@ -98,20 +107,26 @@ if password != "5500":
     st.stop()
 
 elite_map, id_to_text, id_to_parent_text, err = load_and_analyze_data()
-if err: st.error(err); st.stop()
+if err:
+    st.error(err)
+    st.stop()
 
 start_y, end_y = st.sidebar.slider("종빈마 출생 연도 필터", 1900, 2030, (1900, 2026))
+
 results = []
 for sire, daughters in elite_map.items():
     filtered = [d for d in daughters if start_y <= d['year'] <= end_y]
-    if filtered: results.append((sire, filtered, len(daughters)))
+    if filtered:
+        results.append((sire, filtered, len(daughters)))
 results.sort(key=lambda x: len(x[1]), reverse=True)
 g1_pattern = re.compile(r'G1-(\d+)')
 
-if not results: st.warning("조건에 맞는 데이터가 없습니다.")
+if not results:
+    st.warning("조건에 맞는 데이터가 없습니다.")
 else:
     for i, (sire, daughters, total) in enumerate(results[:100], 1):
-        num_mares = len(daughters); stars = "⭐" * num_mares
+        num_mares = len(daughters)
+        stars = "⭐" * num_mares
         with st.expander(f"[{i}위] {sire} (엘리트 종빈마: {num_mares}두) {stars}"):
             st.markdown("<div class='hr-line'></div>", unsafe_allow_html=True)
             sire_to_mothers = defaultdict(set)
@@ -121,7 +136,6 @@ else:
                     sire_to_mothers[p_sire_name].add(d['name'])
             
             nick_sires = [s for s, mothers in sire_to_mothers.items() if len(mothers) >= 2]
-            # 닉 배경색 팔레트 (폰트색은 제외)
             bg_palette = ["#FFEBEE", "#E0F2F1", "#F3E5F5", "#E8F5E9", "#FBE9E7"]
             border_palette = ["#D32F2F", "#00796B", "#7B1FA2", "#388E3C", "#E64A19"]
             nick_style_map = {}
@@ -131,7 +145,8 @@ else:
                 color_idx += 1
 
             for d in daughters:
-                st.markdown(f<div class='elite-mare'>💎 {d['name']}</div>, unsafe_allow_html=True)
+                # 에러 방지: 다이아몬드 이모지 대신 HTML 엔티티 코드로 변경
+                st.markdown(f"<div class='elite-mare'>&#128142; {d['name']}</div>", unsafe_allow_html=True)
                 if d['progeny_ids']:
                     for p_id in d['progeny_ids']:
                         child_name = id_to_text.get(p_id, "")
@@ -151,20 +166,9 @@ else:
                         
                         # [2] 부마 스타일: 진파란색 폰트 최우선 적용
                         if is_high_g1 or is_elite_daughter:
-                            # 우수 자마를 배출한 부마인 경우
                             if father_name in nick_style_map:
-                                # 닉인 경우: 배경색+테두리는 유지하되 폰트만 진파란색으로 덮어씀
                                 border_c, bg_c = nick_style_map[father_name]
+                                # 닉 배경색은 유지하되 폰트색만 진파란색(#0000FF)으로 덮어씀
                                 father_display = f"<span style='color:#0000FF; background-color:{bg_c}; font-weight:900; padding:2px 6px; border-radius:4px; border: 1px solid {border_c}60;'>{father_name}</span>"
                             else:
-                                # 닉이 아닌 경우: 순수 진파란색 굵게
-                                father_display = f"<span class='sire-deep-blue'>{father_name}</span>"
-                        else:
-                            # 일반 자마인 경우 닉 스타일만 적용
-                            if father_name in nick_style_map:
-                                border_c, bg_c = nick_style_map[father_name]
-                                father_display = f"<span style='color:{border_c}; background-color:{bg_c}; font-weight:900; padding:2px 6px; border-radius:4px; border: 1px solid {border_c}60;'>{father_name}</span>"
-                            else:
-                                father_display = f"<b>{father_name}</b>"
-                        
-                        st.markdown(f"<div class='progeny-item'>🔗 [연결] {child_display} ({father_display})</div>", unsafe_allow_html=True)
+                                father_display = f"<span
