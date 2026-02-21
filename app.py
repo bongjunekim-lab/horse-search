@@ -159,49 +159,31 @@ else:
             
             nick_sires = [s for s, mothers in sire_to_mothers.items() if len(mothers) >= 2]
             
-            # --- [핵심 개선] 20개의 완전히 다른 고대비 색상 팔레트 ---
-            palette = [
-                ("#E74C3C", "#FDEDEC"), # 1. 강렬한 빨강
-                ("#2874A6", "#EBF5FB"), # 2. 파랑 (Mr. Prospector)
-                ("#1E8449", "#EAFAF1"), # 3. 녹색 (Roberto)
-                ("#8E44AD", "#F4ECF7"), # 4. 보라 (Seattle Slew)
-                ("#D35400", "#FEF5E7"), # 5. 짙은 주황
-                ("#117A65", "#E8F8F5"), # 6. 청록
-                ("#FF1493", "#FFE7F4"), # 7. 핫핑크
-                ("#8B4513", "#F4EBE6"), # 8. 갈색
-                ("#000080", "#E6E6F2"), # 9. 네이비 (남색)
-                ("#B8860B", "#FCF8E8"), # 10. 올리브 골드
-                ("#1ABC9C", "#E8F8F5"), # 11. 밝은 민트
-                ("#34495E", "#EAECEE"), # 12. 다크 챠콜
-                ("#E67E22", "#FDEBD0"), # 13. 당근색
-                ("#9B59B6", "#EBDEF0"), # 14. 연보라
-                ("#C0392B", "#FADBD8"), # 15. 벽돌색(다크레드)
-                ("#27AE60", "#D5F5E3"), # 16. 네프라이트 그린
-                ("#F39C12", "#FEF5E7"), # 17. 골드 옐로우
-                ("#4A235A", "#F5EEF8"), # 18. 다크 퍼플
-                ("#0E6251", "#E8F8F5"), # 19. 다크 청록
-                ("#7B241C", "#F9EBEA")  # 20. 버건디 와인색
+            # --- [핵심 개선] 가장 명확한 6가지 핵심 색상 팔레트 ---
+            general_palette = [
+                ("#D32F2F", "#FFEBEE"), # 1. 강렬한 빨강 (Red)
+                ("#E64A19", "#FBE9E7"), # 2. 강렬한 주황 (Orange)
+                ("#00796B", "#E0F2F1"), # 3. 짙은 청록 (Teal)
+                ("#1976D2", "#E3F2FD"), # 4. 시원한 파랑 (Blue)
+                ("#388E3C", "#E8F5E9"), # 5. 짙은 녹색 (Green)
+                ("#7B1FA2", "#F3E5F5")  # 6. 짙은 보라 (Purple)
             ]
-            
-            # 고정 색상(녹, 파, 보)을 제외한 17개의 자율 할당 팔레트 생성
-            reserved_hex = ["#1E8449", "#2874A6", "#8E44AD"]
-            available_palette = [c for c in palette if c[0] not in reserved_hex]
             
             nick_color_map = {}
             p_idx = 0
             
             for ns in nick_sires:
                 ns_lower = ns.lower()
-                # 1. 고정 마명 처리
+                # 1. 고정 마명 처리 (요청하신 3마리는 무조건 이 색상 배정)
                 if "roberto" in ns_lower:
-                    nick_color_map[ns] = ("#1E8449", "#EAFAF1")
+                    nick_color_map[ns] = ("#388E3C", "#E8F5E9") # 녹색
                 elif "mr. prospector" in ns_lower or "mr.prospector" in ns_lower:
-                    nick_color_map[ns] = ("#2874A6", "#EBF5FB")
+                    nick_color_map[ns] = ("#1976D2", "#E3F2FD") # 파랑
                 elif "seattle slew" in ns_lower:
-                    nick_color_map[ns] = ("#8E44AD", "#F4ECF7")
+                    nick_color_map[ns] = ("#7B1FA2", "#F3E5F5") # 보라
                 else:
-                    # 2. 남은 17개 색상을 순서대로 돌려가며 무한 할당 (빨간색 도배 방지)
-                    nick_color_map[ns] = available_palette[p_idx % len(available_palette)]
+                    # 2. 그 외의 마명들은 6가지 색상 안에서만 빙글빙글 돌며 배정 (애매한 색 제거)
+                    nick_color_map[ns] = general_palette[p_idx % len(general_palette)]
                     p_idx += 1
 
             for d in daughters:
