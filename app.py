@@ -7,7 +7,7 @@ from collections import defaultdict
 # 1. 페이지 설정
 st.set_page_config(page_title="엘리트 혈통 추적 시스템", layout="wide")
 
-# CSS 설정: 폰트 색상 및 가독성 최적화
+# CSS 설정: 닉 박스 내 글자 굵기 조절 및 부마 강조 유지
 st.markdown("""
     <style>
     .elite-mare {
@@ -32,7 +32,7 @@ st.markdown("""
         color: #000000 !important;
         font-weight: 900 !important;
     }
-    /* 우수 자마를 배출한 부마 진파란색 */
+    /* 우수 자마를 배출한 부마 진파란색 + 굵게 */
     .sire-deep-blue {
         color: #0000FF !important;
         font-weight: 900 !important;
@@ -139,7 +139,6 @@ else:
                 color_idx += 1
 
             for d in daughters:
-                # 다이아몬드 기호 에러 방지용 HTML 엔티티 사용
                 st.markdown(f"<div class='elite-mare'>&#128142; {d['name']}</div>", unsafe_allow_html=True)
                 if d['progeny_ids']:
                     for p_id in d['progeny_ids']:
@@ -150,7 +149,7 @@ else:
                         is_high_g1 = g1_match and int(g1_match.group(1)) >= 7
                         is_elite_daughter = ('@' in child_name or '#' in child_name) and '암)' in child_name
                         
-                        # [1] 자마 스타일
+                        # [1] 자마 스타일 (보라색 유지)
                         if is_high_g1 or is_elite_daughter:
                             child_display = f"<span class='premium-progeny'>{child_name}</span>"
                         elif '*' in child_name and '암)' in child_name:
@@ -158,17 +157,22 @@ else:
                         else:
                             child_display = child_name
                         
-                        # [2] 부마 스타일: 진파란색 최우선 적용
+                        # [2] 부마 스타일 설정
                         if is_high_g1 or is_elite_daughter:
+                            # 우수 자마 배출 부마 -> 진파란색 적용
                             if father_name in nick_style_map:
                                 border_c, bg_c = nick_style_map[father_name]
-                                father_display = f"<span style='color:#0000FF; background-color:{bg_c}; font-weight:900; padding:2px 6px; border-radius:4px; border: 1px solid {border_c}60;'>{father_name}</span>"
+                                # 수정 포인트: font-weight를 400(가늘게)으로 조정하여 눈부심 방지
+                                father_display = f"<span style='color:#0000FF; background-color:{bg_c}; font-weight:400; padding:2px 6px; border-radius:4px; border: 1px solid {border_c}60;'>{father_name}</span>"
                             else:
+                                # 닉이 아닌 경우 기존처럼 굵게 강조
                                 father_display = f"<span class='sire-deep-blue'>{father_name}</span>"
                         else:
+                            # 일반 자마의 부마
                             if father_name in nick_style_map:
                                 border_c, bg_c = nick_style_map[father_name]
-                                father_display = f"<span style='color:{border_c}; background-color:{bg_c}; font-weight:900; padding:2px 6px; border-radius:4px; border: 1px solid {border_c}60;'>{father_name}</span>"
+                                # 수정 포인트: font-weight를 400(가늘게)으로 조정
+                                father_display = f"<span style='color:{border_c}; background-color:{bg_c}; font-weight:400; padding:2px 6px; border-radius:4px; border: 1px solid {border_c}60;'>{father_name}</span>"
                             else:
                                 father_display = f"<b>{father_name}</b>"
                         
