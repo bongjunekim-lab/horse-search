@@ -23,18 +23,18 @@ st.markdown("""
         color: #333333;
         font-size: 1.05em;
     }
-    /* 요청사항: 우수 자마(@, #, G1-7)들을 모두 보라색으로 통일 */
+    /* 우수 자마(@, #, G1-7) 보라색 */
     .premium-progeny {
-        color: #800080 !important; /* 보라색 */
+        color: #800080 !important;
         font-weight: bold;
     }
     .star-daughter {
         color: #000000 !important;
         font-weight: 900 !important;
     }
-    /* 요청사항: 우수 자마를 배출한 부마는 무조건 진파란색(최우선) */
+    /* 우수 자마를 배출한 부마 진파란색 */
     .sire-deep-blue {
-        color: #0000FF !important; /* 진파란색 */
+        color: #0000FF !important;
         font-weight: 900 !important;
     }
     .hr-line {
@@ -52,8 +52,7 @@ def load_and_analyze_data():
     try:
         tree = ET.parse(file_path)
         root = tree.getroot()
-        id_to_text = {}
-        id_to_parent_text = {}
+        id_to_text = {}; id_to_parent_text = {}
         for parent in root.iter('node'):
             p_text = parent.get('TEXT', 'Unknown')
             for child in parent.findall('node'):
@@ -63,21 +62,18 @@ def load_and_analyze_data():
                     id_to_parent_text[c_id] = p_text
         year_pattern = re.compile(r'(\d{4})')
         elite_sire_map = defaultdict(list)
-        
         def normalize_name(text):
             clean = text.replace('@', '').replace('#', '').replace('*', '')
             clean = clean.replace('암)', '').replace('수)', '').replace('거)', '')
             clean = clean.replace('가.', '').replace('나.', '').replace('다.', '')
             clean = clean.split('(')[0]
             return clean.strip().lower()
-            
         def traverse(node, parent_text="Unknown"):
             my_text = node.get('TEXT', '')
             if my_text and '@' in my_text:
                 year_match = year_pattern.search(my_text)
                 birth_year = int(year_match.group(1)) if year_match else 0
-                progeny_info = []
-                seen_ids = set()
+                progeny_info = []; seen_ids = set()
                 mare_pure_name = normalize_name(my_text)
                 for arrow in node.findall('arrowlink'):
                     dest_id = arrow.get('DESTINATION')
@@ -93,7 +89,6 @@ def load_and_analyze_data():
                     elite_sire_map[parent_text.strip()].append(mare_info)
             for child in node.findall('node'):
                 traverse(child, my_text)
-        
         traverse(root)
         return elite_sire_map, id_to_text, id_to_parent_text, None
     except Exception as e:
@@ -108,8 +103,7 @@ if password != "5500":
 
 elite_map, id_to_text, id_to_parent_text, err = load_and_analyze_data()
 if err:
-    st.error(err)
-    st.stop()
+    st.error(err); st.stop()
 
 start_y, end_y = st.sidebar.slider("종빈마 출생 연도 필터", 1900, 2030, (1900, 2026))
 
@@ -145,7 +139,7 @@ else:
                 color_idx += 1
 
             for d in daughters:
-                # 에러 방지: 다이아몬드 이모지 대신 HTML 엔티티 코드로 변경
+                # 다이아몬드 기호 에러 방지용 HTML 엔티티 사용
                 st.markdown(f"<div class='elite-mare'>&#128142; {d['name']}</div>", unsafe_allow_html=True)
                 if d['progeny_ids']:
                     for p_id in d['progeny_ids']:
@@ -156,7 +150,7 @@ else:
                         is_high_g1 = g1_match and int(g1_match.group(1)) >= 7
                         is_elite_daughter = ('@' in child_name or '#' in child_name) and '암)' in child_name
                         
-                        # [1] 자마 스타일: @, #, G1-7 모두 보라색 통일
+                        # [1] 자마 스타일
                         if is_high_g1 or is_elite_daughter:
                             child_display = f"<span class='premium-progeny'>{child_name}</span>"
                         elif '*' in child_name and '암)' in child_name:
@@ -164,11 +158,18 @@ else:
                         else:
                             child_display = child_name
                         
-                        # [2] 부마 스타일: 진파란색 폰트 최우선 적용
+                        # [2] 부마 스타일: 진파란색 최우선 적용
                         if is_high_g1 or is_elite_daughter:
                             if father_name in nick_style_map:
                                 border_c, bg_c = nick_style_map[father_name]
-                                # 닉 배경색은 유지하되 폰트색만 진파란색(#0000FF)으로 덮어씀
                                 father_display = f"<span style='color:#0000FF; background-color:{bg_c}; font-weight:900; padding:2px 6px; border-radius:4px; border: 1px solid {border_c}60;'>{father_name}</span>"
                             else:
-                                father_display = f"<span
+                                father_display = f"<span class='sire-deep-blue'>{father_name}</span>"
+                        else:
+                            if father_name in nick_style_map:
+                                border_c, bg_c = nick_style_map[father_name]
+                                father_display = f"<span style='color:{border_c}; background-color:{bg_c}; font-weight:900; padding:2px 6px; border-radius:4px; border: 1px solid {border_c}60;'>{father_name}</span>"
+                            else:
+                                father_display = f"<b>{father_name}</b>"
+                        
+                        st.markdown(f"<div class='progeny-item'>🔗 [연결] {child_display} ({father_display})</div>", unsafe_allow_html=True)
