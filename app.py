@@ -97,7 +97,7 @@ def load_and_analyze_data():
     except Exception as e: return None, None, None, f"분석 오류: {str(e)}"
 
 # UI 메인
-st.title("🐎 암말우성 씨수말 랭킹 및 1대 자마 성적 분석 (G1-7 기준)")
+st.title("🐎 암말우성 씨수말 랭킹과 점수")
 password = st.text_input("접속 암호를 입력하세요", type="password")
 if password != "5500":
     if password: st.error("암호 오류")
@@ -225,3 +225,4 @@ else:
                             else: father_display = f"<b>{father_name}</b>"
                         
                         st.markdown(f"<div class='progeny-item'>🔗 [연결] {child_display} ({father_display})</div>", unsafe_allow_html=True)
+
