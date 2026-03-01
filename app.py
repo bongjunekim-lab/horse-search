@@ -167,7 +167,7 @@ scored_results.sort(key=lambda x: x['score'], reverse=True)
 if not scored_results: 
     st.warning("조건에 맞는 데이터가 없습니다.")
 else:
-    for i, data in enumerate(scored_results[:300], 1): # 출력 제한을 300위까지 확대
+    for i, data in enumerate(scored_results[:400], 1): # 출력 제한을 400위까지 확대
         sire = data['sire']
         daughters = data['daughters']
         n1 = data['n1']
@@ -228,4 +228,5 @@ else:
                                 father_display = f"<b>{father_name}</b>"
                         
                         st.markdown(f"<div class='progeny-item'>🔗 [연결] {child_display} ({father_display})</div>", unsafe_allow_html=True) 
+
 
