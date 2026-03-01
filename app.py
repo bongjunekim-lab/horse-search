@@ -46,10 +46,10 @@ st.markdown("""
         border-bottom: 1px solid #ddd;
     }
     
-    /* 아코디언(expander) 헤더 폰트 크기 조정 (기존 1.45em -> 1.2em) */
+    /* 아코디언(expander) 헤더 폰트 크기 및 굵기 조정 */
     div[data-testid="stExpander"] summary p {
         font-size: 1.2em !important; 
-        font-weight: 800 !important;
+        font-weight: 400 !important; /* 굵기를 일반 수준으로 가늘게 변경 */
         color: #111111 !important;
     }
     </style>
@@ -172,10 +172,8 @@ else:
         score = data['score']
         stars = "⭐" * n1
         
-        # 랭킹 타이틀에 들어가는 마명 맨 앞의 숫자/기호 일괄 제거
         display_sire = clean_name_symbols(sire)
         
-        # HTML 삽입을 제거하고 문자열 포맷팅으로 타이틀 구성 (CSS로 크기 자동 확대됨)
         expander_title = f"[{i}위] {display_sire} (엘리트 종빈마: {n1}두) {stars} | 🏆 총점: {score:.1f}점"
         
         with st.expander(expander_title):
@@ -208,23 +206,4 @@ else:
                         is_high_g1_son = is_high_g1 and not is_daughter
                         
                         if is_high_g1_son or is_elite_daughter:
-                            child_display = f"<span class='premium-progeny'>{child_name}</span>"
-                        elif '*' in child_name and is_daughter:
-                            child_display = f"<span class='star-daughter'>{child_name}</span>"
-                        else: 
-                            child_display = child_name
-                        
-                        if is_high_g1_son or is_elite_daughter:
-                            if father_name in nick_style_map:
-                                b_c, bg_c = nick_style_map[father_name]
-                                father_display = f"<span style='color:#0000FF; background-color:{bg_c}; font-weight:900; padding:2px 6px; border-radius:4px; border: 1px solid {b_c}60;'>{father_name}</span>"
-                            else:
-                                father_display = f"<span class='sire-deep-blue-bold'>{father_name}</span>"
-                        else:
-                            if father_name in nick_style_map:
-                                b_c, bg_c = nick_style_map[father_name]
-                                father_display = f"<span style='color:{b_c}; background-color:{bg_c}; font-weight:400; padding:2px 6px; border-radius:4px; border: 1px solid {b_c}60;'>{father_name}</span>"
-                            else: 
-                                father_display = f"<b>{father_name}</b>"
-                        
-                        st.markdown(f"<div class='progeny-item'>🔗 [연결] {child_display} ({father_display})</div>", unsafe_allow_html=True) 
+                            child_display = f"<span class='premium-progeny'>{child 
