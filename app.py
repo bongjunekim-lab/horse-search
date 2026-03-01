@@ -49,14 +49,14 @@ st.markdown("""
     /* 아코디언(expander) 헤더 폰트 크기 및 굵기 조정 */
     div[data-testid="stExpander"] summary p {
         font-size: 1.2em !important; 
-        font-weight: 400 !important; /* 굵기를 일반 수준으로 가늘게 변경 */
+        font-weight: 400 !important; 
         color: #111111 !important;
     }
     </style>
     """, unsafe_allow_html=True)
 
 @st.cache_data
-def load_and_analyze_data():
+def parse_bloodline_data(): # 함수명 변경으로 캐시 강제 초기화
     file_path = '우수한 경주마(수말, 암말).mm'
     if not os.path.exists(file_path):
         return None, None, None, "파일을 찾을 수 없습니다."
@@ -75,6 +75,7 @@ def load_and_analyze_data():
         
         def normalize_name(text):
             clean = text.replace('@', '').replace('#', '').replace('*', '')
+            clean = clean.replace('＠', '').replace('＃', '')
             clean = clean.replace('암)', '').replace('수)', '').replace('거)', '')
             clean = clean.replace('가.', '').replace('나.', '').replace('다.', '')
             clean = clean.split('(')[0]
@@ -82,7 +83,8 @@ def load_and_analyze_data():
             
         def traverse(node, parent_text="Unknown"):
             my_text = node.get('TEXT', '')
-            if my_text and ('@' in my_text or '#' in my_text):
+            # 전각/반각 기호 모두 인식하도록 확장
+            if my_text and ('@' in my_text or '#' in my_text or '＠' in my_text or '＃' in my_text):
                 year_match = year_pattern.search(my_text)
                 birth_year = int(year_match.group(1)) if year_match else 0
                 progeny_info = []; seen_ids = set()
@@ -109,7 +111,7 @@ if password != "5500":
     if password: st.error("암호 오류")
     st.stop()
 
-elite_map, id_to_text, id_to_parent_text, err = load_and_analyze_data()
+elite_map, id_to_text, id_to_parent_text, err = parse_bloodline_data()
 if err: st.error(err); st.stop()
 
 start_y, end_y = st.sidebar.slider("종빈마 출생 연도 필터", 1900, 2030, (1900, 2026))
@@ -136,7 +138,7 @@ for sire, daughters, total in results:
             is_high_g1 = bool(g1_match and int(g1_match.group(1)) >= 7)
             is_daughter = '암)' in child_name
             
-            is_n2 = ('@' in child_name or '#' in child_name) and is_daughter
+            is_n2 = ('@' in child_name or '#' in child_name or '＠' in child_name or '＃' in child_name) and is_daughter
             is_s2 = is_high_g1 and not is_daughter
             
             if is_n2:
@@ -165,7 +167,7 @@ scored_results.sort(key=lambda x: x['score'], reverse=True)
 if not scored_results: 
     st.warning("조건에 맞는 데이터가 없습니다.")
 else:
-    for i, data in enumerate(scored_results[:100], 1):
+    for i, data in enumerate(scored_results[:200], 1): # 출력 제한을 200위까지 확대
         sire = data['sire']
         daughters = data['daughters']
         n1 = data['n1']
@@ -202,7 +204,7 @@ else:
                         g1_match = g1_pattern.search(child_name)
                         is_high_g1 = bool(g1_match and int(g1_match.group(1)) >= 7)
                         is_daughter = '암)' in child_name
-                        is_elite_daughter = ('@' in child_name or '#' in child_name) and is_daughter
+                        is_elite_daughter = ('@' in child_name or '#' in child_name or '＠' in child_name or '＃' in child_name) and is_daughter
                         is_high_g1_son = is_high_g1 and not is_daughter
                         
                         if is_high_g1_son or is_elite_daughter:
@@ -225,5 +227,4 @@ else:
                             else: 
                                 father_display = f"<b>{father_name}</b>"
                         
-                        st.markdown(f"<div class='progeny-item'>🔗 [연결] {child_display} ({father_display})</div>", unsafe_allow_html=True)
-
+                        st.markdown(f"<div class='progeny-item'>🔗 [연결] {child_display} ({father_display})</div>", unsafe_allow_html=True) 
