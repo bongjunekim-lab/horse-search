@@ -185,9 +185,9 @@ else:
         
         display_sire = clean_name_symbols(sire)
         
-        # 3점 이상 차이가 날 경우 주황색 및 굵게 표시
+        # 3점 이상 차이가 날 경우 파란색 및 굵게 표시
         if (all_time_score - score) >= 3.0:
-            all_time_str = f":orange[**(통산: {all_time_score:.1f}점)**]"
+            all_time_str = f":blue[**(통산: {all_time_score:.1f}점)**]"
         else:
             all_time_str = f"(통산: {all_time_score:.1f}점)"
         
