@@ -206,4 +206,24 @@ else:
                         is_high_g1_son = is_high_g1 and not is_daughter
                         
                         if is_high_g1_son or is_elite_daughter:
-                            child_display = f"<span class='premium-progeny'>{child 
+                            child_display = f"<span class='premium-progeny'>{child_name}</span>"
+                        elif '*' in child_name and is_daughter:
+                            child_display = f"<span class='star-daughter'>{child_name}</span>"
+                        else: 
+                            child_display = child_name
+                        
+                        if is_high_g1_son or is_elite_daughter:
+                            if father_name in nick_style_map:
+                                b_c, bg_c = nick_style_map[father_name]
+                                father_display = f"<span style='color:#0000FF; background-color:{bg_c}; font-weight:900; padding:2px 6px; border-radius:4px; border: 1px solid {b_c}60;'>{father_name}</span>"
+                            else:
+                                father_display = f"<span class='sire-deep-blue-bold'>{father_name}</span>"
+                        else:
+                            if father_name in nick_style_map:
+                                b_c, bg_c = nick_style_map[father_name]
+                                father_display = f"<span style='color:{b_c}; background-color:{bg_c}; font-weight:400; padding:2px 6px; border-radius:4px; border: 1px solid {b_c}60;'>{father_name}</span>"
+                            else: 
+                                father_display = f"<b>{father_name}</b>"
+                        
+                        st.markdown(f"<div class='progeny-item'>🔗 [연결] {child_display} ({father_display})</div>", unsafe_allow_html=True)
+
