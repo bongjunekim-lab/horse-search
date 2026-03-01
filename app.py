@@ -105,7 +105,26 @@ def parse_bloodline_data():
 
 # UI 메인
 st.title("🐎 암말우성 씨수말 랭킹과 점수")
+
 password = st.text_input("접속 암호를 입력하세요", type="password")
+
+# 초기 화면 공지사항 영역 (오타 수정 및 내용 보강 적용)
+st.markdown("""
+<div style='background-color: #f8f9fa; padding: 20px; border-radius: 10px; border-left: 5px solid #d32f2f; margin-top: 10px; margin-bottom: 20px;'>
+    <h4 style='margin-top: 0; color: #333;'>📢 업데이트 소식 및 이용 안내</h4>
+    <ul style='margin-bottom: 0; color: #555; line-height: 1.7; font-size: 1.05em;'>
+        <li><b>[기능 추가]</b> 좌측 사이드바에 <b>현구간 최소 점수 필터(Cut-off)</b>가 적용되었습니다. (기본값 3.0점)</li>
+        <li><b>[데이터]</b> 통산 점수와 현구간 점수가 3점 이상 차이 날 경우 통산 점수가 <span style='color: blue; font-weight: bold;'>파란색</span>으로 강조됩니다.</li>
+        <li><b>[UI/UX]</b> 랭킹 타이틀 목록에서 씨수말 이름 앞의 특수기호 및 숫자가 제거되었습니다.</li>
+        <li><b>[안내]</b> 현구간 점수가 1~2점인 씨수말은 외조부로서의 유전력보다 교배된 부마(Sire)의 우연성에 기인했을 확률이 높아 필터링을 권장합니다.</li>
+        <li><b>[검색 팁]</b> 보유한 말의 외조부가 획득한 별(⭐) 개수를 찾으려면, 최소 점수 필터를 <b>0</b>으로 설정한 후 <b>Ctrl + F</b>를 눌러 마명을 검색하십시오.</li>
+        <li><b>[개발 목표]</b> 본 시스템의 최종 목적은 별이 1개인 외조부라도 그 딸들이 G급 자마를 몇 두나 배출하는지 일괄 확인하여, 외조부 간의 초기 잠재력 우열을 선제적으로 파악하는 데 있습니다.</li>
+        <li><b>[문의처]</b> 사용 중 불편한 점이나 개선 사항은 <b>bongjunekim@gmail.com</b> 또는 <b>010-8982-3811</b>(문자 요망)로 남겨주시면 확인 후 연락드리겠습니다.</li>
+    </ul>
+</div>
+""", unsafe_allow_html=True)
+
+# 암호 검증 로직
 if password != "5500":
     if password: st.error("암호 오류")
     st.stop()
@@ -117,7 +136,6 @@ if err: st.error(err); st.stop()
 st.sidebar.markdown("### 🔍 검색 조건 설정")
 start_y, end_y = st.sidebar.slider("종빈마 출생 연도 필터", 1900, 2030, (1900, 2026))
 
-# [신규 추가] 현구간 점수 Cut-off 필터 (기본값 3.0 설정)
 st.sidebar.markdown("---")
 min_score = st.sidebar.slider("현구간 최소 점수 필터", 0.0, 30.0, 3.0, 0.5)
 
@@ -251,4 +269,4 @@ else:
                             else: 
                                 father_display = f"<b>{father_name}</b>"
                         
-                        st.markdown(f"<div class='progeny-item'>🔗 [연결] {child_display} ({father_display})</div>", unsafe_allow_html=True)
+                        st.markdown(f"<div class='progeny-item'>🔗 [연결] {child_display} ({father_display})</div>", unsafe_allow_html=True) 
