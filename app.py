@@ -108,26 +108,39 @@ st.title("🐎 암말우성 씨수말 랭킹과 점수")
 
 password = st.text_input("접속 암호를 입력하세요", type="password")
 
-# 초기 화면 공지사항 영역 (오타 수정 및 내용 보강 적용)
-st.markdown("""
-<div style='background-color: #f8f9fa; padding: 20px; border-radius: 10px; border-left: 5px solid #d32f2f; margin-top: 10px; margin-bottom: 20px;'>
-    <h4 style='margin-top: 0; color: #333;'>📢 업데이트 소식 및 이용 안내</h4>
-    <ul style='margin-bottom: 0; color: #555; line-height: 1.7; font-size: 1.05em;'>
-        <li><b>[기능 추가]</b> 좌측 사이드바에 <b>현구간 최소 점수 필터(Cut-off)</b>가 적용되었습니다. (기본값 3.0점)</li>
-        <li><b>[데이터]</b> 통산 점수와 현구간 점수가 3점 이상 차이 날 경우 통산 점수가 <span style='color: blue; font-weight: bold;'>파란색</span>으로 강조됩니다.</li>
-        <li><b>[UI/UX]</b> 랭킹 타이틀 목록에서 씨수말 이름 앞의 특수기호 및 숫자가 제거되었습니다.</li>
-        <li><b>[안내]</b> 현구간 점수가 1~2점인 씨수말은 외조부로서의 유전력보다 교배된 부마(Sire)의 우연성에 기인했을 확률이 높아 필터링을 권장합니다.</li>
-        <li><b>[검색 팁]</b> 보유한 말의 외조부가 획득한 별(⭐) 개수를 찾으려면, 최소 점수 필터를 <b>0</b>으로 설정한 후 <b>Ctrl + F</b>를 눌러 마명을 검색하십시오.</li>
-        <li><b>[개발 목표]</b> 본 시스템의 최종 목적은 별이 1개인 외조부라도 그 딸들이 G급 자마를 몇 두나 배출하는지 일괄 확인하여, 외조부 간의 초기 잠재력 우열을 선제적으로 파악하는 데 있습니다.</li>
-        <li><b>[문의처]</b> 사용 중 불편한 점이나 개선 사항은 <b>bongjunekim@gmail.com</b> 또는 <b>010-8982-3811</b>(문자 요망)로 남겨주시면 확인 후 연락드리겠습니다.</li>
-    </ul>
-</div>
-""", unsafe_allow_html=True)
-
-# 암호 검증 로직
+# --- 로그인 전 (대문) 공지사항 노출 ---
 if password != "5500":
-    if password: st.error("암호 오류")
+    st.markdown("""
+    <div style='background-color: #f8f9fa; padding: 20px; border-radius: 10px; border-left: 5px solid #d32f2f; margin-top: 10px; margin-bottom: 20px;'>
+        <h4 style='margin-top: 0; color: #333;'>📢 업데이트 소식 및 이용 안내</h4>
+        <ul style='margin-bottom: 0; color: #555; line-height: 1.7; font-size: 1.05em;'>
+            <li><b>[기능 추가]</b> BMS(외조부)의 유전력을 기준으로 점수화 시스템을 도입했습니다. 좌측 사이드바의 <b>현구간 최소 점수 필터(Cut-off)</b>를 통해 원하는 기준 이상의 씨수말만 필터링할 수 있습니다. (기본값 3.0점)</li>
+            <li><b>[점수 안내]</b> 사용자가 지정한 출생 연도의 점수는 <b>'현구간 유전력'</b>을 뜻하며, 역대 총점은 <b>'통산 유전력'</b>으로 병기됩니다. 두 점수가 3점 이상 차이 날 경우 통산 점수가 <span style='color: blue; font-weight: bold;'>파란색</span>으로 강조됩니다.</li>
+            <li><b>[UI/UX]</b> 랭킹 타이틀 목록에서 씨수말 이름 앞의 특수기호 및 숫자가 제거되었습니다.</li>
+            <li><b>[분석 팁]</b> 현구간 점수가 1~2점인 씨수말은 외조부로서의 유전력보다 교배된 부마(Sire)의 우연성에 기인했을 확률이 높아 필터링을 권장합니다.</li>
+            <li><b>[검색 팁]</b> 보유한 말의 외조부가 획득한 별(⭐) 개수를 찾으려면, 최소 점수 필터를 <b>0</b>으로 설정한 후 <b>Ctrl + F</b>를 눌러 마명을 검색하십시오.</li>
+            <li><b>[개발 목표]</b> 본 시스템의 최종 목적은 별이 1개인 외조부라도 그 딸들이 G급 자마를 몇 두나 배출하는지 일괄 확인하여, 외조부 간의 초기 잠재력 우열을 선제적으로 파악하는 데 있습니다.</li>
+            <li><b>[문의처]</b> 사용 중 불편한 점이나 개선 사항은 <b>bongjunekim@gmail.com</b> 또는 <b>010-8982-3811</b>(문자 요망)로 남겨주시면 확인 후 연락드리겠습니다.</li>
+        </ul>
+    </div>
+    """, unsafe_allow_html=True)
+    if password: 
+        st.error("암호 오류")
     st.stop()
+
+# --- 로그인 후 (데이터 뷰) 초슬림 공지사항 노출 ---
+with st.expander("📢 업데이트 소식 및 이용 안내 (클릭하여 펴기)"):
+    st.markdown("""
+    <ul style='margin-bottom: 0; color: #555; line-height: 1.6; font-size: 0.95em;'>
+        <li><b>[기능 추가]</b> BMS(외조부) 유전력 기준 점수화 및 현구간 최소 점수 필터(Cut-off) 적용</li>
+        <li><b>[점수 안내]</b> 지정 연도 점수 = <b>현구간 유전력</b> / 역대 총점 = <b>통산 유전력</b> (3점 이상 차이 시 <span style='color: blue; font-weight: bold;'>파란색</span> 강조)</li>
+        <li><b>[UI/UX]</b> 랭킹 타이틀 내 씨수말 이름 특수기호/숫자 제거</li>
+        <li><b>[분석 팁]</b> 현구간 1~2점은 우연성에 기인했을 확률이 높아 최소 3.0점 이상 필터링 권장</li>
+        <li><b>[검색 팁]</b> 최소 점수 필터를 0으로 둔 후 <b>Ctrl + F</b>로 보유 말의 외조부 마명 검색 가능</li>
+        <li><b>[개발 목표]</b> 별 1개 외조부의 G급 자마 배출량 일괄 확인 및 초기 잠재력 우열 선제 파악</li>
+        <li><b>[문의처]</b> bongjunekim@gmail.com / 010-8982-3811(문자 요망)</li>
+    </ul>
+    """, unsafe_allow_html=True)
 
 elite_map, id_to_text, id_to_parent_text, err = parse_bloodline_data()
 if err: st.error(err); st.stop()
