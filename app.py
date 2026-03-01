@@ -5,12 +5,11 @@ import os
 from collections import defaultdict
 
 def clean_name_symbols(text):
-    """랭킹 표시용 씨수말 이름에서 특정 기호(*, -, |, ~)를 제거합니다."""
-    symbols_to_remove = ['*', '-', '|', '~']
-    cleaned_text = text
-    for symbol in symbols_to_remove:
-        cleaned_text = cleaned_text.replace(symbol, '')
-    return cleaned_text.strip()
+    """씨수말 이름 맨 앞의 숫자, 특수기호(도형, 기호 등), 공백을 모두 제거합니다."""
+    # ^ : 문자열 시작
+    # [\d\s\W_]+ : 숫자(\d), 공백(\s), 알파벳/한글 이외의 특수문자(\W), 언더바(_)가 1개 이상 연속된 부분 삭제
+    cleaned = re.sub(r'^[\d\s\W_]+', '', text)
+    return cleaned.strip()
 
 # 1. 페이지 설정
 st.set_page_config(page_title="엘리트 혈통 추적 시스템", layout="wide")
@@ -48,12 +47,12 @@ st.markdown("""
         margin: 10px 0;
         border-bottom: 1px solid #ddd;
     }
-    /* 데인힐 총점 확대 스타일 */
-    .danehill-large-score {
-        font-size: 2em; 
-        font-weight: bold;
-        color: #d32f2f; 
-        margin-left: 10px;
+    
+    /* [핵심 수정] 아코디언(expander) 헤더 폰트 크기 및 굵기 일괄 확대 */
+    div[data-testid="stExpander"] summary p {
+        font-size: 1.45em !important; 
+        font-weight: 800 !important;
+        color: #111111 !important;
     }
     </style>
     """, unsafe_allow_html=True)
@@ -85,7 +84,6 @@ def load_and_analyze_data():
             
         def traverse(node, parent_text="Unknown"):
             my_text = node.get('TEXT', '')
-            # 수정된 부분: '@' 또는 '#' 기호가 있는 경우 모두 엘리트 종빈마로 인식
             if my_text and ('@' in my_text or '#' in my_text):
                 year_match = year_pattern.search(my_text)
                 birth_year = int(year_match.group(1)) if year_match else 0
@@ -176,19 +174,15 @@ else:
         score = data['score']
         stars = "⭐" * n1
         
-        # 오직 랭킹 타이틀에 들어가는 씨수말 이름에만 특수기호 제거 적용
+        # 랭킹 타이틀에 들어가는 마명 맨 앞의 숫자/기호 일괄 제거
         display_sire = clean_name_symbols(sire)
         
-        # 데인힐 점수 폰트 크기 확대 적용 (문자열 포함 여부로 확인)
-        if "Danehill" in display_sire:
-            expander_title = f"[{i}위] {display_sire} (엘리트 종빈마: {n1}두) {stars} | 🏆 총점: <span class='danehill-large-score'>{score:.1f}점</span>"
-        else:
-            expander_title = f"[{i}위] {display_sire} (엘리트 종빈마: {n1}두) {stars} | 🏆 총점: {score:.1f}점"
+        # HTML 삽입을 제거하고 문자열 포맷팅으로 타이틀 구성 (CSS로 크기 자동 확대됨)
+        expander_title = f"[{i}위] {display_sire} (엘리트 종빈마: {n1}두) {stars} | 🏆 총점: {score:.1f}점"
         
         with st.expander(expander_title):
-            # 점수 산출식 안내 영역은 완전히 삭제됨
+            # 점수 산출식 안내 영역 완전히 삭제됨
             
-            st.markdown("<div class='hr-line'></div>", unsafe_allow_html=True)
             sire_to_mothers = defaultdict(set)
             for d in daughters:
                 for p_id in d['progeny_ids']:
@@ -204,7 +198,6 @@ else:
                 color_idx += 1
 
             for d in daughters:
-                # 종빈마 이름은 원본 데이터 그대로 출력
                 st.markdown(f"<div class='elite-mare'>&#128142; {d['name']}</div>", unsafe_allow_html=True)
                 
                 if d['progeny_ids']:
@@ -218,7 +211,6 @@ else:
                         is_elite_daughter = ('@' in child_name or '#' in child_name) and is_daughter
                         is_high_g1_son = is_high_g1 and not is_daughter
                         
-                        # 자마 이름(child_name) 원본 그대로 스타일만 적용
                         if is_high_g1_son or is_elite_daughter:
                             child_display = f"<span class='premium-progeny'>{child_name}</span>"
                         elif '*' in child_name and is_daughter:
@@ -226,7 +218,6 @@ else:
                         else: 
                             child_display = child_name
                         
-                        # 부마 이름(father_name) 원본 그대로 스타일만 적용
                         if is_high_g1_son or is_elite_daughter:
                             if father_name in nick_style_map:
                                 b_c, bg_c = nick_style_map[father_name]
@@ -240,4 +231,4 @@ else:
                             else: 
                                 father_display = f"<b>{father_name}</b>"
                         
-                        st.markdown(f"<div class='progeny-item'>🔗 [연결] {child_display} ({father_display})</div>", unsafe_allow_html=True)
+                        st.markdown(f"<div class='progeny-item'>🔗 [연결] {child_display} ({father_display})</div>", unsafe_allow_html=True) 
