@@ -113,7 +113,13 @@ if password != "5500":
 elite_map, id_to_text, id_to_parent_text, err = parse_bloodline_data()
 if err: st.error(err); st.stop()
 
+# 좌측 사이드바 필터 설정 영역
+st.sidebar.markdown("### 🔍 검색 조건 설정")
 start_y, end_y = st.sidebar.slider("종빈마 출생 연도 필터", 1900, 2030, (1900, 2026))
+
+# [신규 추가] 현구간 점수 Cut-off 필터 (기본값 3.0 설정)
+st.sidebar.markdown("---")
+min_score = st.sidebar.slider("현구간 최소 점수 필터", 0.0, 30.0, 3.0, 0.5)
 
 g1_pattern = re.compile(r'G1-(\d+)')
 
@@ -161,19 +167,21 @@ for sire, all_daughters in elite_map.items():
     n1 = len(filtered_daughters)
     filtered_score = calculate_score(filtered_daughters)
     
-    scored_results.append({
-        'sire': sire,
-        'daughters': filtered_daughters,
-        'n1': n1,
-        'score': filtered_score,
-        'all_time_score': all_time_score
-    })
+    # [조건 반영] 계산된 현구간 점수가 사이드바에서 설정한 최소 점수 이상일 때만 결과에 포함
+    if filtered_score >= min_score:
+        scored_results.append({
+            'sire': sire,
+            'daughters': filtered_daughters,
+            'n1': n1,
+            'score': filtered_score,
+            'all_time_score': all_time_score
+        })
 
 # 합산 점수 기준 내림차순 정렬 (정렬 기준은 필터링된 현재 점수)
 scored_results.sort(key=lambda x: x['score'], reverse=True)
 
 if not scored_results: 
-    st.warning("조건에 맞는 데이터가 없습니다.")
+    st.warning("조건에 맞는 데이터가 없습니다. 사이드바의 필터 조건을 조정해 보세요.")
 else:
     for i, data in enumerate(scored_results[:500], 1):
         sire = data['sire']
@@ -243,4 +251,4 @@ else:
                             else: 
                                 father_display = f"<b>{father_name}</b>"
                         
-                        st.markdown(f"<div class='progeny-item'>🔗 [연결] {child_display} ({father_display})</div>", unsafe_allow_html=True) 
+                        st.markdown(f"<div class='progeny-item'>🔗 [연결] {child_display} ({father_display})</div>", unsafe_allow_html=True)
