@@ -85,7 +85,8 @@ def load_and_analyze_data():
             
         def traverse(node, parent_text="Unknown"):
             my_text = node.get('TEXT', '')
-            if my_text and '@' in my_text:
+            # 수정된 부분: '@' 또는 '#' 기호가 있는 경우 모두 엘리트 종빈마로 인식
+            if my_text and ('@' in my_text or '#' in my_text):
                 year_match = year_pattern.search(my_text)
                 birth_year = int(year_match.group(1)) if year_match else 0
                 progeny_info = []; seen_ids = set()
@@ -239,5 +240,4 @@ else:
                             else: 
                                 father_display = f"<b>{father_name}</b>"
                         
-                        st.markdown(f"<div class='progeny-item'>🔗 [연결] {child_display} ({father_display})</div>", unsafe_allow_html=True) 
-
+                        st.markdown(f"<div class='progeny-item'>🔗 [연결] {child_display} ({father_display})</div>", unsafe_allow_html=True)
