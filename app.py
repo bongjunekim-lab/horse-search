@@ -4,6 +4,14 @@ import re
 import os
 from collections import defaultdict
 
+def clean_name_symbols(text):
+    """랭킹 표시용 씨수말 이름에서 특정 기호(*, -, |, ~)를 제거합니다."""
+    symbols_to_remove = ['*', '-', '|', '~']
+    cleaned_text = text
+    for symbol in symbols_to_remove:
+        cleaned_text = cleaned_text.replace(symbol, '')
+    return cleaned_text.strip()
+
 # 1. 페이지 설정
 st.set_page_config(page_title="엘리트 혈통 추적 시스템", layout="wide")
 
@@ -40,13 +48,12 @@ st.markdown("""
         margin: 10px 0;
         border-bottom: 1px solid #ddd;
     }
-    .score-box {
-        background-color: #F8F9FA;
-        padding: 10px;
-        border-radius: 5px;
-        border-left: 5px solid #FFC107;
-        margin-bottom: 15px;
+    /* 데인힐 총점 확대 스타일 */
+    .danehill-large-score {
+        font-size: 2em; 
         font-weight: bold;
+        color: #d32f2f; 
+        margin-left: 10px;
     }
     </style>
     """, unsafe_allow_html=True)
@@ -68,12 +75,14 @@ def load_and_analyze_data():
                     id_to_parent_text[c_id] = p_text
         year_pattern = re.compile(r'(\d{4})')
         elite_sire_map = defaultdict(list)
+        
         def normalize_name(text):
             clean = text.replace('@', '').replace('#', '').replace('*', '')
             clean = clean.replace('암)', '').replace('수)', '').replace('거)', '')
             clean = clean.replace('가.', '').replace('나.', '').replace('다.', '')
             clean = clean.split('(')[0]
             return clean.strip().lower()
+            
         def traverse(node, parent_text="Unknown"):
             my_text = node.get('TEXT', '')
             if my_text and '@' in my_text:
@@ -114,7 +123,7 @@ for sire, daughters in elite_map.items():
 
 g1_pattern = re.compile(r'G1-(\d+)')
 
-# 데이터 가공 및 점수 계산 (조건 수정 완료)
+# 데이터 가공 및 점수 계산
 scored_results = []
 for sire, daughters, total in results:
     n1 = len(daughters) 
@@ -130,9 +139,7 @@ for sire, daughters, total in results:
             is_high_g1 = bool(g1_match and int(g1_match.group(1)) >= 7)
             is_daughter = '암)' in child_name
             
-            # N2 조건: @ 또는 # 이 포함된 암말
             is_n2 = ('@' in child_name or '#' in child_name) and is_daughter
-            # S2 조건: G1-7 이상이면서 수말(암말 표기가 없는 경우)
             is_s2 = is_high_g1 and not is_daughter
             
             if is_n2:
@@ -168,13 +175,17 @@ else:
         score = data['score']
         stars = "⭐" * n1
         
-        with st.expander(f"[{i}위] {sire} (엘리트 종빈마: {n1}두) {stars} | 🏆 총점: {score:.1f}점"):
-            st.markdown(f"""
-            <div class='score-box'>
-                📊 점수 산출식: (1.0 × N1) + (1.5 × S2) + (2.0 × N2) + (1.0 × K)<br>
-                결과: (1.0 × {n1}) + (1.5 × {data['s2']}) + (2.0 × {data['n2']}) + (1.0 × {data['k']}) = <span style='color:red; font-size:1.1em;'>{score:.1f}점</span>
-            </div>
-            """, unsafe_allow_html=True)
+        # 오직 랭킹 타이틀에 들어가는 씨수말 이름에만 특수기호 제거 적용
+        display_sire = clean_name_symbols(sire)
+        
+        # 데인힐 점수 폰트 크기 확대 적용 (문자열 포함 여부로 확인)
+        if "Danehill" in display_sire:
+            expander_title = f"[{i}위] {display_sire} (엘리트 종빈마: {n1}두) {stars} | 🏆 총점: <span class='danehill-large-score'>{score:.1f}점</span>"
+        else:
+            expander_title = f"[{i}위] {display_sire} (엘리트 종빈마: {n1}두) {stars} | 🏆 총점: {score:.1f}점"
+        
+        with st.expander(expander_title):
+            # 점수 산출식 안내 영역은 완전히 삭제됨
             
             st.markdown("<div class='hr-line'></div>", unsafe_allow_html=True)
             sire_to_mothers = defaultdict(set)
@@ -192,7 +203,9 @@ else:
                 color_idx += 1
 
             for d in daughters:
+                # 종빈마 이름은 원본 데이터 그대로 출력
                 st.markdown(f"<div class='elite-mare'>&#128142; {d['name']}</div>", unsafe_allow_html=True)
+                
                 if d['progeny_ids']:
                     for p_id in d['progeny_ids']:
                         child_name = id_to_text.get(p_id, "")
@@ -204,14 +217,15 @@ else:
                         is_elite_daughter = ('@' in child_name or '#' in child_name) and is_daughter
                         is_high_g1_son = is_high_g1 and not is_daughter
                         
-                        # [1] 자마 스타일 (N2 및 S2 조건 충족 시 적색 클래스 적용)
+                        # 자마 이름(child_name) 원본 그대로 스타일만 적용
                         if is_high_g1_son or is_elite_daughter:
                             child_display = f"<span class='premium-progeny'>{child_name}</span>"
                         elif '*' in child_name and is_daughter:
                             child_display = f"<span class='star-daughter'>{child_name}</span>"
-                        else: child_display = child_name
+                        else: 
+                            child_display = child_name
                         
-                        # [2] 부마 스타일
+                        # 부마 이름(father_name) 원본 그대로 스타일만 적용
                         if is_high_g1_son or is_elite_daughter:
                             if father_name in nick_style_map:
                                 b_c, bg_c = nick_style_map[father_name]
@@ -222,7 +236,8 @@ else:
                             if father_name in nick_style_map:
                                 b_c, bg_c = nick_style_map[father_name]
                                 father_display = f"<span style='color:{b_c}; background-color:{bg_c}; font-weight:400; padding:2px 6px; border-radius:4px; border: 1px solid {b_c}60;'>{father_name}</span>"
-                            else: father_display = f"<b>{father_name}</b>"
+                            else: 
+                                father_display = f"<b>{father_name}</b>"
                         
-                        st.markdown(f"<div class='progeny-item'>🔗 [연결] {child_display} ({father_display})</div>", unsafe_allow_html=True)
+                        st.markdown(f"<div class='progeny-item'>🔗 [연결] {child_display} ({father_display})</div>", unsafe_allow_html=True) 
 
