@@ -6,8 +6,6 @@ from collections import defaultdict
 
 def clean_name_symbols(text):
     """씨수말 이름 맨 앞의 숫자, 특수기호(도형, 기호 등), 공백을 모두 제거합니다."""
-    # ^ : 문자열 시작
-    # [\d\s\W_]+ : 숫자(\d), 공백(\s), 알파벳/한글 이외의 특수문자(\W), 언더바(_)가 1개 이상 연속된 부분 삭제
     cleaned = re.sub(r'^[\d\s\W_]+', '', text)
     return cleaned.strip()
 
@@ -48,9 +46,9 @@ st.markdown("""
         border-bottom: 1px solid #ddd;
     }
     
-    /* [핵심 수정] 아코디언(expander) 헤더 폰트 크기 및 굵기 일괄 확대 */
+    /* 아코디언(expander) 헤더 폰트 크기 조정 (기존 1.45em -> 1.2em) */
     div[data-testid="stExpander"] summary p {
-        font-size: 1.45em !important; 
+        font-size: 1.2em !important; 
         font-weight: 800 !important;
         color: #111111 !important;
     }
@@ -181,8 +179,6 @@ else:
         expander_title = f"[{i}위] {display_sire} (엘리트 종빈마: {n1}두) {stars} | 🏆 총점: {score:.1f}점"
         
         with st.expander(expander_title):
-            # 점수 산출식 안내 영역 완전히 삭제됨
-            
             sire_to_mothers = defaultdict(set)
             for d in daughters:
                 for p_id in d['progeny_ids']:
