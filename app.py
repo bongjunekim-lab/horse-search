@@ -185,8 +185,14 @@ else:
         
         display_sire = clean_name_symbols(sire)
         
-        # 타이틀에 현구간 점수와 통산 점수를 함께 출력
-        expander_title = f"[{i}위] {display_sire} (엘리트 종빈마: {n1}두) {stars} | 🏆 현구간: {score:.1f}점 (통산: {all_time_score:.1f}점)"
+        # [수정된 부분] 3점 이상 차이가 날 경우 Streamlit 자체 마크다운 컬러(:blue[]) 적용
+        if (all_time_score - score) >= 3.0:
+            all_time_str = f":blue[(통산: {all_time_score:.1f}점)]"
+        else:
+            all_time_str = f"(통산: {all_time_score:.1f}점)"
+        
+        # 타이틀 구성
+        expander_title = f"[{i}위] {display_sire} (엘리트 종빈마: {n1}두) {stars} | 🏆 현구간: {score:.1f}점 {all_time_str}"
         
         with st.expander(expander_title):
             sire_to_mothers = defaultdict(set)
@@ -237,6 +243,4 @@ else:
                             else: 
                                 father_display = f"<b>{father_name}</b>"
                         
-                        st.markdown(f"<div class='progeny-item'>🔗 [연결] {child_display} ({father_display})</div>", unsafe_allow_html=True) 
-
-
+                        st.markdown(f"<div class='progeny-item'>🔗 [연결] {child_display} ({father_display})</div>", unsafe_allow_html=True)
