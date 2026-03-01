@@ -185,9 +185,9 @@ else:
         
         display_sire = clean_name_symbols(sire)
         
-        # [수정된 부분] 3점 이상 차이가 날 경우 Streamlit 자체 마크다운 컬러(:blue[]) 적용
+        # 3점 이상 차이가 날 경우 파란색 및 굵게 표시
         if (all_time_score - score) >= 3.0:
-            all_time_str = f":blue[(통산: {all_time_score:.1f}점)]"
+            all_time_str = f":blue[**(통산: {all_time_score:.1f}점)**]"
         else:
             all_time_str = f"(통산: {all_time_score:.1f}점)"
         
@@ -201,46 +201,3 @@ else:
                     p_sire_name = id_to_parent_text.get(p_id, "정보 없음")
                     sire_to_mothers[p_sire_name].add(d['name'])
             nick_sires = [s for s, mothers in sire_to_mothers.items() if len(mothers) >= 2]
-            bg_palette = ["#FFEBEE", "#E0F2F1", "#F3E5F5", "#E8F5E9", "#FBE9E7"]
-            border_palette = ["#D32F2F", "#00796B", "#7B1FA2", "#388E3C", "#E64A19"]
-            nick_style_map = {}
-            color_idx = 0
-            for ns in nick_sires:
-                nick_style_map[ns] = (border_palette[color_idx % 5], bg_palette[color_idx % 5])
-                color_idx += 1
-
-            for d in daughters:
-                st.markdown(f"<div class='elite-mare'>&#128142; {d['name']}</div>", unsafe_allow_html=True)
-                
-                if d['progeny_ids']:
-                    for p_id in d['progeny_ids']:
-                        child_name = id_to_text.get(p_id, "")
-                        father_name = id_to_parent_text.get(p_id, "정보 없음")
-                        
-                        g1_match = g1_pattern.search(child_name)
-                        is_high_g1 = bool(g1_match and int(g1_match.group(1)) >= 7)
-                        is_daughter = '암)' in child_name
-                        is_elite_daughter = ('@' in child_name or '#' in child_name or '＠' in child_name or '＃' in child_name) and is_daughter
-                        is_high_g1_son = is_high_g1 and not is_daughter
-                        
-                        if is_high_g1_son or is_elite_daughter:
-                            child_display = f"<span class='premium-progeny'>{child_name}</span>"
-                        elif '*' in child_name and is_daughter:
-                            child_display = f"<span class='star-daughter'>{child_name}</span>"
-                        else: 
-                            child_display = child_name
-                        
-                        if is_high_g1_son or is_elite_daughter:
-                            if father_name in nick_style_map:
-                                b_c, bg_c = nick_style_map[father_name]
-                                father_display = f"<span style='color:#0000FF; background-color:{bg_c}; font-weight:900; padding:2px 6px; border-radius:4px; border: 1px solid {b_c}60;'>{father_name}</span>"
-                            else:
-                                father_display = f"<span class='sire-deep-blue-bold'>{father_name}</span>"
-                        else:
-                            if father_name in nick_style_map:
-                                b_c, bg_c = nick_style_map[father_name]
-                                father_display = f"<span style='color:{b_c}; background-color:{bg_c}; font-weight:400; padding:2px 6px; border-radius:4px; border: 1px solid {b_c}60;'>{father_name}</span>"
-                            else: 
-                                father_display = f"<b>{father_name}</b>"
-                        
-                        st.markdown(f"<div class='progeny-item'>🔗 [연결] {child_display} ({father_display})</div>", unsafe_allow_html=True)
