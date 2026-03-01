@@ -56,7 +56,7 @@ st.markdown("""
     """, unsafe_allow_html=True)
 
 @st.cache_data
-def parse_bloodline_data(): # 함수명 변경으로 캐시 강제 초기화
+def parse_bloodline_data():
     file_path = '우수한 경주마(수말, 암말).mm'
     if not os.path.exists(file_path):
         return None, None, None, "파일을 찾을 수 없습니다."
@@ -83,7 +83,6 @@ def parse_bloodline_data(): # 함수명 변경으로 캐시 강제 초기화
             
         def traverse(node, parent_text="Unknown"):
             my_text = node.get('TEXT', '')
-            # 전각/반각 기호 모두 인식하도록 확장
             if my_text and ('@' in my_text or '#' in my_text or '＠' in my_text or '＃' in my_text):
                 year_match = year_pattern.search(my_text)
                 birth_year = int(year_match.group(1)) if year_match else 0
@@ -115,25 +114,19 @@ elite_map, id_to_text, id_to_parent_text, err = parse_bloodline_data()
 if err: st.error(err); st.stop()
 
 start_y, end_y = st.sidebar.slider("종빈마 출생 연도 필터", 1900, 2030, (1900, 2026))
-results = []
-for sire, daughters in elite_map.items():
-    filtered = [d for d in daughters if start_y <= d['year'] <= end_y]
-    if filtered: results.append((sire, filtered, len(daughters)))
 
 g1_pattern = re.compile(r'G1-(\d+)')
 
-# 데이터 가공 및 점수 계산
-scored_results = []
-for sire, daughters, total in results:
-    n1 = len(daughters) 
-    s2 = 0              
-    n2 = 0              
-    productive_k = set() 
+# 점수 계산을 위한 내부 함수
+def calculate_score(daughters_list):
+    n1 = len(daughters_list)
+    s2 = 0
+    n2 = 0
+    productive_k = set()
     
-    for d in daughters:
+    for d in daughters_list:
         for p_id in d['progeny_ids']:
             child_name = id_to_text.get(p_id, "")
-            
             g1_match = g1_pattern.search(child_name)
             is_high_g1 = bool(g1_match and int(g1_match.group(1)) >= 7)
             is_daughter = '암)' in child_name
@@ -150,33 +143,50 @@ for sire, daughters, total in results:
                 
     k = len(productive_k)
     score = (1.0 * n1) + (1.5 * s2) + (2.0 * n2) + (1.0 * k)
+    return score
+
+# 데이터 가공 및 점수 계산
+scored_results = []
+for sire, all_daughters in elite_map.items():
+    # 필터가 적용된 자마 목록
+    filtered_daughters = [d for d in all_daughters if start_y <= d['year'] <= end_y]
+    
+    if not filtered_daughters:
+        continue
+        
+    # 통산 점수 계산 (전체 자마 기준)
+    all_time_score = calculate_score(all_daughters)
+    
+    # 현구간 점수 계산 (필터링된 자마 기준)
+    n1 = len(filtered_daughters)
+    filtered_score = calculate_score(filtered_daughters)
     
     scored_results.append({
         'sire': sire,
-        'daughters': daughters,
+        'daughters': filtered_daughters,
         'n1': n1,
-        's2': s2,
-        'n2': n2,
-        'k': k,
-        'score': score
+        'score': filtered_score,
+        'all_time_score': all_time_score
     })
 
-# 합산 점수 기준 내림차순 정렬
+# 합산 점수 기준 내림차순 정렬 (정렬 기준은 필터링된 현재 점수)
 scored_results.sort(key=lambda x: x['score'], reverse=True)
 
 if not scored_results: 
     st.warning("조건에 맞는 데이터가 없습니다.")
 else:
-    for i, data in enumerate(scored_results[:400], 1): # 출력 제한을 400위까지 확대
+    for i, data in enumerate(scored_results[:500], 1):
         sire = data['sire']
         daughters = data['daughters']
         n1 = data['n1']
         score = data['score']
+        all_time_score = data['all_time_score']
         stars = "⭐" * n1
         
         display_sire = clean_name_symbols(sire)
         
-        expander_title = f"[{i}위] {display_sire} (엘리트 종빈마: {n1}두) {stars} | 🏆 총점: {score:.1f}점"
+        # 타이틀에 현구간 점수와 통산 점수를 함께 출력
+        expander_title = f"[{i}위] {display_sire} (엘리트 종빈마: {n1}두) {stars} | 🏆 현구간: {score:.1f}점 (통산: {all_time_score:.1f}점)"
         
         with st.expander(expander_title):
             sire_to_mothers = defaultdict(set)
