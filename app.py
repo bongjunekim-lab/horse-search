@@ -7,7 +7,7 @@ from collections import defaultdict
 # 1. 페이지 설정
 st.set_page_config(page_title="엘리트 혈통 추적 시스템", layout="wide")
 
-# CSS 설정: 자마와 부마의 스타일 가이드 고정
+# CSS 설정
 st.markdown("""
     <style>
     .elite-mare {
@@ -23,16 +23,15 @@ st.markdown("""
         color: #333333;
         font-size: 1.05em;
     }
-    /* @, #, G1-7 자마는 모두 보라색 */
+    /* G1-7 수말 및 @, # 암말 강조 (적색) */
     .premium-progeny {
-        color: #800080 !important;
+        color: #D32F2F !important;
         font-weight: bold;
     }
     .star-daughter {
         color: #000000 !important;
         font-weight: 900 !important;
     }
-    /* 핵심 부마 전용: 진파란색 + 아주 굵게(900) */
     .sire-deep-blue-bold {
         color: #0000FF !important;
         font-weight: 900 !important;
@@ -40,6 +39,14 @@ st.markdown("""
     .hr-line {
         margin: 10px 0;
         border-bottom: 1px solid #ddd;
+    }
+    .score-box {
+        background-color: #F8F9FA;
+        padding: 10px;
+        border-radius: 5px;
+        border-left: 5px solid #FFC107;
+        margin-bottom: 15px;
+        font-weight: bold;
     }
     </style>
     """, unsafe_allow_html=True)
@@ -104,14 +111,71 @@ results = []
 for sire, daughters in elite_map.items():
     filtered = [d for d in daughters if start_y <= d['year'] <= end_y]
     if filtered: results.append((sire, filtered, len(daughters)))
-results.sort(key=lambda x: len(x[1]), reverse=True)
+
 g1_pattern = re.compile(r'G1-(\d+)')
 
-if not results: st.warning("조건에 맞는 데이터가 없습니다.")
+# 데이터 가공 및 점수 계산 (조건 수정 완료)
+scored_results = []
+for sire, daughters, total in results:
+    n1 = len(daughters) 
+    s2 = 0              
+    n2 = 0              
+    productive_k = set() 
+    
+    for d in daughters:
+        for p_id in d['progeny_ids']:
+            child_name = id_to_text.get(p_id, "")
+            
+            g1_match = g1_pattern.search(child_name)
+            is_high_g1 = bool(g1_match and int(g1_match.group(1)) >= 7)
+            is_daughter = '암)' in child_name
+            
+            # N2 조건: @ 또는 # 이 포함된 암말
+            is_n2 = ('@' in child_name or '#' in child_name) and is_daughter
+            # S2 조건: G1-7 이상이면서 수말(암말 표기가 없는 경우)
+            is_s2 = is_high_g1 and not is_daughter
+            
+            if is_n2:
+                n2 += 1
+                productive_k.add(d['name'])
+            if is_s2:
+                s2 += 1
+                productive_k.add(d['name'])
+                
+    k = len(productive_k)
+    score = (1.0 * n1) + (1.5 * s2) + (2.0 * n2) + (1.0 * k)
+    
+    scored_results.append({
+        'sire': sire,
+        'daughters': daughters,
+        'n1': n1,
+        's2': s2,
+        'n2': n2,
+        'k': k,
+        'score': score
+    })
+
+# 합산 점수 기준 내림차순 정렬
+scored_results.sort(key=lambda x: x['score'], reverse=True)
+
+if not scored_results: 
+    st.warning("조건에 맞는 데이터가 없습니다.")
 else:
-    for i, (sire, daughters, total) in enumerate(results[:100], 1):
-        num_mares = len(daughters); stars = "⭐" * num_mares
-        with st.expander(f"[{i}위] {sire} (엘리트 종빈마: {num_mares}두) {stars}"):
+    for i, data in enumerate(scored_results[:100], 1):
+        sire = data['sire']
+        daughters = data['daughters']
+        n1 = data['n1']
+        score = data['score']
+        stars = "⭐" * n1
+        
+        with st.expander(f"[{i}위] {sire} (엘리트 종빈마: {n1}두) {stars} | 🏆 총점: {score:.1f}점"):
+            st.markdown(f"""
+            <div class='score-box'>
+                📊 점수 산출식: (1.0 × N1) + (1.5 × S2) + (2.0 × N2) + (1.0 × K)<br>
+                결과: (1.0 × {n1}) + (1.5 × {data['s2']}) + (2.0 × {data['n2']}) + (1.0 × {data['k']}) = <span style='color:red; font-size:1.1em;'>{score:.1f}점</span>
+            </div>
+            """, unsafe_allow_html=True)
+            
             st.markdown("<div class='hr-line'></div>", unsafe_allow_html=True)
             sire_to_mothers = defaultdict(set)
             for d in daughters:
@@ -133,27 +197,28 @@ else:
                     for p_id in d['progeny_ids']:
                         child_name = id_to_text.get(p_id, "")
                         father_name = id_to_parent_text.get(p_id, "정보 없음")
-                        g1_match = g1_pattern.search(child_name)
-                        is_high_g1 = g1_match and int(g1_match.group(1)) >= 7
-                        is_elite_daughter = ('@' in child_name or '#' in child_name) and '암)' in child_name
                         
-                        # [1] 자마 스타일
-                        if is_high_g1 or is_elite_daughter:
+                        g1_match = g1_pattern.search(child_name)
+                        is_high_g1 = bool(g1_match and int(g1_match.group(1)) >= 7)
+                        is_daughter = '암)' in child_name
+                        is_elite_daughter = ('@' in child_name or '#' in child_name) and is_daughter
+                        is_high_g1_son = is_high_g1 and not is_daughter
+                        
+                        # [1] 자마 스타일 (N2 및 S2 조건 충족 시 적색 클래스 적용)
+                        if is_high_g1_son or is_elite_daughter:
                             child_display = f"<span class='premium-progeny'>{child_name}</span>"
-                        elif '*' in child_name and '암)' in child_name:
+                        elif '*' in child_name and is_daughter:
                             child_display = f"<span class='star-daughter'>{child_name}</span>"
                         else: child_display = child_name
                         
-                        # [2] 부마 스타일: 핵심 부마(@, #, G1-7 배출)는 무조건 진파란색 + 굵게(900)
-                        if is_high_g1 or is_elite_daughter:
+                        # [2] 부마 스타일
+                        if is_high_g1_son or is_elite_daughter:
                             if father_name in nick_style_map:
                                 b_c, bg_c = nick_style_map[father_name]
-                                # 닉 박스 적용 시에도 폰트 굵기를 900으로 고정
                                 father_display = f"<span style='color:#0000FF; background-color:{bg_c}; font-weight:900; padding:2px 6px; border-radius:4px; border: 1px solid {b_c}60;'>{father_name}</span>"
                             else:
                                 father_display = f"<span class='sire-deep-blue-bold'>{father_name}</span>"
                         else:
-                            # 일반 자마의 부마는 이전처럼 가늘게(기본 굵기) 하여 피로도 감소
                             if father_name in nick_style_map:
                                 b_c, bg_c = nick_style_map[father_name]
                                 father_display = f"<span style='color:{b_c}; background-color:{bg_c}; font-weight:400; padding:2px 6px; border-radius:4px; border: 1px solid {b_c}60;'>{father_name}</span>"
