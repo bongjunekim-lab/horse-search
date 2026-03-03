@@ -209,5 +209,106 @@ for sire, all_daughters in elite_map.items():
 # 데이터 가공 및 점수 계산 (메인 랭킹용)
 scored_results = []
 for sire, all_daughters in elite_map.items():
-    # 필터가 적용된 자마 목록
-    filtered_daughters = [d for d in all_daughters if start_y <=
+    # 필터가 적용된 자마 목록 (한 줄로 작성하여 SyntaxError 방지)
+    filtered_daughters = [d for d in all_daughters if start_y <= d['year'] <= end_y]
+    
+    if not filtered_daughters:
+        continue
+        
+    # 통산 점수 계산 (전체 자마 기준)
+    all_time_score = calculate_score(all_daughters)
+    
+    # 현구간 점수 계산 (필터링된 자마 기준)
+    n1 = len(filtered_daughters)
+    filtered_score = calculate_score(filtered_daughters)
+    
+    # 계산된 현구간 점수가 사이드바에서 설정한 최소 점수 이상일 때만 결과에 포함
+    if filtered_score >= min_score:
+        scored_results.append({
+            'sire': sire,
+            'daughters': filtered_daughters,
+            'n1': n1,
+            'score': filtered_score,
+            'all_time_score': all_time_score
+        })
+
+# 합산 점수 기준 내림차순 정렬
+scored_results.sort(key=lambda x: x['score'], reverse=True)
+
+if not scored_results: 
+    st.warning("조건에 맞는 데이터가 없습니다. 사이드바의 필터 조건을 조정해 보세요.")
+else:
+    for i, data in enumerate(scored_results[:500], 1):
+        sire = data['sire']
+        daughters = data['daughters']
+        n1 = data['n1']
+        score = data['score']
+        all_time_score = data['all_time_score']
+        stars = "⭐" * n1
+        
+        display_sire = clean_name_symbols(sire)
+        
+        if (all_time_score - score) >= 3.0:
+            all_time_str = f":blue[**(통산: {all_time_score:.1f}점)**]"
+        else:
+            all_time_str = f"(통산: {all_time_score:.1f}점)"
+        
+        expander_title = f"[{i}위] {display_sire} (엘리트 종빈마: {n1}두) {stars} | 🏆 현구간: {score:.1f}점 {all_time_str}"
+        
+        with st.expander(expander_title):
+            sire_to_mothers = defaultdict(set)
+            for d in daughters:
+                for p_id in d['progeny_ids']:
+                    p_sire_name = id_to_parent_text.get(p_id, "정보 없음")
+                    sire_to_mothers[p_sire_name].add(d['name'])
+            nick_sires = [s for s, mothers in sire_to_mothers.items() if len(mothers) >= 2]
+            bg_palette = ["#FFEBEE", "#E0F2F1", "#F3E5F5", "#E8F5E9", "#FBE9E7"]
+            border_palette = ["#D32F2F", "#00796B", "#7B1FA2", "#388E3C", "#E64A19"]
+            nick_style_map = {}
+            color_idx = 0
+            for ns in nick_sires:
+                nick_style_map[ns] = (border_palette[color_idx % 5], bg_palette[color_idx % 5])
+                color_idx += 1
+
+            for d in daughters:
+                st.markdown(f"<div class='elite-mare'>&#128142; {d['name']}</div>", unsafe_allow_html=True)
+                
+                if d['progeny_ids']:
+                    for p_id in d['progeny_ids']:
+                        child_name = id_to_text.get(p_id, "")
+                        father_name = id_to_parent_text.get(p_id, "정보 없음")
+                        
+                        g1_match = g1_pattern.search(child_name)
+                        is_high_g1 = bool(g1_match and int(g1_match.group(1)) >= 7)
+                        is_daughter = '암)' in child_name
+                        is_elite_daughter = ('@' in child_name or '#' in child_name or '＠' in child_name or '＃' in child_name) and is_daughter
+                        is_high_g1_son = is_high_g1 and not is_daughter
+                        
+                        if is_high_g1_son or is_elite_daughter:
+                            child_display = f"<span class='premium-progeny'>{child_name}</span>"
+                        elif '*' in child_name and is_daughter:
+                            child_display = f"<span class='star-daughter'>{child_name}</span>"
+                        else: 
+                            child_display = child_name
+                        
+                        # 체크박스 활성화 시, 부마의 BMS 점수를 검은색으로 3칸 띄워서 추가
+                        bms_depth_text = ""
+                        clean_father_name = father_name.strip()
+                        if show_sire_bms and clean_father_name in sire_all_bms_scores:
+                            cur_s, all_s = sire_all_bms_scores[clean_father_name]
+                            bms_depth_text = f"&nbsp;&nbsp;&nbsp;<span style='color:#000000; font-weight:bold; font-size:0.95em;'>[BMS 현구간: {cur_s:.1f}점, 통산 점수: {all_s:.1f}점]</span>"
+
+                        if is_high_g1_son or is_elite_daughter:
+                            if father_name in nick_style_map:
+                                b_c, bg_c = nick_style_map[father_name]
+                                father_display = f"<span style='color:#0000FF; background-color:{bg_c}; font-weight:900; padding:2px 6px; border-radius:4px; border: 1px solid {b_c}60;'>{father_name}</span>{bms_depth_text}"
+                            else:
+                                father_display = f"<span class='sire-deep-blue-bold'>{father_name}</span>{bms_depth_text}"
+                        else:
+                            if father_name in nick_style_map:
+                                b_c, bg_c = nick_style_map[father_name]
+                                father_display = f"<span style='color:{b_c}; background-color:{bg_c}; font-weight:400; padding:2px 6px; border-radius:4px; border: 1px solid {b_c}60;'>{father_name}</span>{bms_depth_text}"
+                            else: 
+                                father_display = f"<b>{father_name}</b>{bms_depth_text}"
+                        
+                        st.markdown(f"<div class='progeny-item'>🔗 [연결] {child_display} ({father_display})</div>", unsafe_allow_html=True) 
