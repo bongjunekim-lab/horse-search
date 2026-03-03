@@ -209,7 +209,7 @@ for sire, all_daughters in elite_map.items():
 # 데이터 가공 및 점수 계산 (메인 랭킹용)
 scored_results = []
 for sire, all_daughters in elite_map.items():
-    # 필터가 적용된 자마 목록 (한 줄로 작성하여 SyntaxError 방지)
+    # 필터가 적용된 자마 목록 (한 줄로 작성)
     filtered_daughters = [d for d in all_daughters if start_y <= d['year'] <= end_y]
     
     if not filtered_daughters:
@@ -291,12 +291,12 @@ else:
                         else: 
                             child_display = child_name
                         
-                        # 체크박스 활성화 시, 부마의 BMS 점수를 검은색으로 3칸 띄워서 추가
+                        # 체크박스 활성화 시, 부마의 BMS 점수를 검은색 얇은 글씨(normal)로 3칸 띄워서 추가
                         bms_depth_text = ""
                         clean_father_name = father_name.strip()
                         if show_sire_bms and clean_father_name in sire_all_bms_scores:
                             cur_s, all_s = sire_all_bms_scores[clean_father_name]
-                            bms_depth_text = f"&nbsp;&nbsp;&nbsp;<span style='color:#000000; font-weight:bold; font-size:0.95em;'>[BMS 현구간: {cur_s:.1f}점, 통산 점수: {all_s:.1f}점]</span>"
+                            bms_depth_text = f"&nbsp;&nbsp;&nbsp;<span style='color:#000000; font-weight:normal; font-size:0.95em;'>[BMS 현구간: {cur_s:.1f}점, 통산 점수: {all_s:.1f}점]</span>"
 
                         if is_high_g1_son or is_elite_daughter:
                             if father_name in nick_style_map:
