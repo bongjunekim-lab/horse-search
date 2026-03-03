@@ -159,6 +159,10 @@ start_y, end_y = st.sidebar.slider("종빈마 출생 연도 필터", 1900, 2030,
 st.sidebar.markdown("---")
 min_score = st.sidebar.slider("현구간 최소 점수 필터", 0.0, 30.0, 3.0, 0.5)
 
+st.sidebar.markdown("---")
+# [기능 추가 1] 부마 BMS 보기 체크박스 추가
+show_sire_bms = st.sidebar.checkbox("혈통상 모계 깊이(부마 BMS) 보기", value=False)
+
 g1_pattern = re.compile(r'G1-(\d+)')
 
 # 점수 계산을 위한 내부 함수
@@ -189,7 +193,21 @@ def calculate_score(daughters_list):
     score = (1.0 * n1) + (1.5 * s2) + (2.0 * n2) + (1.0 * k)
     return score
 
-# 데이터 가공 및 점수 계산
+# [기능 추가 2] 전체 씨수말의 BMS 점수 사전(Dictionary) 미리 생성
+# 부마(Sire) 옆에 띄워주기 위해 모든 씨수말의 지정 연도(현구간) 점수와 통산 점수를 계산합니다.
+sire_all_bms_scores = {}
+for sire, all_daughters in elite_map.items():
+    sire_clean_key = sire.strip()
+    filtered_d = [d for d in all_daughters if start_y <= d['year'] <= end_y]
+    
+    all_time_s = calculate_score(all_daughters)
+    current_s = calculate_score(filtered_d) if filtered_d else 0.0
+    
+    # 점수가 0 이상인 경우에만 딕셔너리에 저장
+    if all_time_s > 0:
+        sire_all_bms_scores[sire_clean_key] = (current_s, all_time_s)
+
+# 데이터 가공 및 점수 계산 (메인 랭킹용)
 scored_results = []
 for sire, all_daughters in elite_map.items():
     # 필터가 적용된 자마 목록
@@ -276,17 +294,25 @@ else:
                         else: 
                             child_display = child_name
                         
+                        # [기능 추가 3] 체크박스 활성화 시, 부마의 BMS 점수를 텍스트로 추가
+                        bms_depth_text = ""
+                        clean_father_name = father_name.strip()
+                        if show_sire_bms and clean_father_name in sire_all_bms_scores:
+                            cur_s, all_s = sire_all_bms_scores[clean_father_name]
+                            # 부마 옆에 파란색 글씨로 점수 표기
+                            bms_depth_text = f" <span style='color:#0000FF; font-weight:bold; font-size:0.95em;'>[BMS 현구간: {cur_s:.1f}점, 통산 점수: {all_s:.1f}점]</span>"
+
                         if is_high_g1_son or is_elite_daughter:
                             if father_name in nick_style_map:
                                 b_c, bg_c = nick_style_map[father_name]
-                                father_display = f"<span style='color:#0000FF; background-color:{bg_c}; font-weight:900; padding:2px 6px; border-radius:4px; border: 1px solid {b_c}60;'>{father_name}</span>"
+                                father_display = f"<span style='color:#0000FF; background-color:{bg_c}; font-weight:900; padding:2px 6px; border-radius:4px; border: 1px solid {b_c}60;'>{father_name}</span>{bms_depth_text}"
                             else:
-                                father_display = f"<span class='sire-deep-blue-bold'>{father_name}</span>"
+                                father_display = f"<span class='sire-deep-blue-bold'>{father_name}</span>{bms_depth_text}"
                         else:
                             if father_name in nick_style_map:
                                 b_c, bg_c = nick_style_map[father_name]
-                                father_display = f"<span style='color:{b_c}; background-color:{bg_c}; font-weight:400; padding:2px 6px; border-radius:4px; border: 1px solid {b_c}60;'>{father_name}</span>"
+                                father_display = f"<span style='color:{b_c}; background-color:{bg_c}; font-weight:400; padding:2px 6px; border-radius:4px; border: 1px solid {b_c}60;'>{father_name}</span>{bms_depth_text}"
                             else: 
-                                father_display = f"<b>{father_name}</b>"
+                                father_display = f"<b>{father_name}</b>{bms_depth_text}"
                         
                         st.markdown(f"<div class='progeny-item'>🔗 [연결] {child_display} ({father_display})</div>", unsafe_allow_html=True) 
