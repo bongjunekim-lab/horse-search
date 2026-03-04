@@ -160,8 +160,14 @@ st.sidebar.markdown("---")
 min_score = st.sidebar.slider("현구간 최소 점수 필터", 0.0, 30.0, 3.0, 0.5)
 
 st.sidebar.markdown("---")
-# 부마 BMS 보기 체크박스 추가
+# 부마 BMS 보기 체크박스 유지
 show_sire_bms = st.sidebar.checkbox("혈통상 모계 깊이(부마 BMS) 보기", value=False)
+
+st.sidebar.markdown("---")
+# [추가됨] 저평가 우량 BMS 필터 체크박스 추가
+show_undervalued_bms = st.sidebar.checkbox("저평가 우량 BMS (Undervalued BMS)", value=False)
+if show_undervalued_bms:
+    st.sidebar.caption("※ 부마로서 G1 우승 자마를 6두 이하로 배출했거나 없는(GX) 씨수말만 표시합니다.")
 
 g1_pattern = re.compile(r'G1-(\d+)')
 
@@ -209,6 +215,25 @@ for sire, all_daughters in elite_map.items():
 # 데이터 가공 및 점수 계산 (메인 랭킹용)
 scored_results = []
 for sire, all_daughters in elite_map.items():
+    
+    # --- [추가됨] 저평가 우량 BMS 필터 로직 ---
+    if show_undervalued_bms:
+        # 정규식을 이용해 띄어쓰기 무관하게 GX 또는 G X 패턴 찾기
+        is_gx = bool(re.search(r'G\s*X', sire))
+        # 정규식을 이용해 띄어쓰기 무관하게 G1-숫자 패턴 찾기 (예: G1-6, G1 - 6 등)
+        g1_sire_match = re.search(r'G\s*1\s*-\s*(\d+)', sire)
+        
+        if not is_gx:
+            if g1_sire_match:
+                # 숫자가 6을 초과하면 (예: G1-7 이상) 스킵
+                if int(g1_sire_match.group(1)) > 6:
+                    continue
+            else:
+                # GX도 없고 G1- 패턴도 없는 경우도 필터링에서 제외하고 싶다면 아래 주석 해제. 
+                # (현재는 명확히 G1-x 나 GX 가 있는 경우만 타겟팅하기 위해 제외 처리합니다)
+                continue 
+    # ---------------------------------------------
+
     # 필터가 적용된 자마 목록 (한 줄로 작성)
     filtered_daughters = [d for d in all_daughters if start_y <= d['year'] <= end_y]
     
@@ -311,4 +336,4 @@ else:
                             else: 
                                 father_display = f"<b>{father_name}</b>{bms_depth_text}"
                         
-                        st.markdown(f"<div class='progeny-item'>🔗 [연결] {child_display} ({father_display})</div>", unsafe_allow_html=True) 
+                        st.markdown(f"<div class='progeny-item'>🔗 [연결] {child_display} ({father_display})</div>", unsafe_allow_html=True)
