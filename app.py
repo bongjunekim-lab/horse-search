@@ -105,7 +105,10 @@ def parse_bloodline_data():
                         progeny_info.append(dest_id)
                         seen_ids.add(dest_id)
                 mare_info = {'name': my_text.strip(), 'year': birth_year, 'progeny_ids': progeny_info}
-                if parent_text != "Unknown": elite_sire_map[parent_text.strip()].append(mare_info)
+                if parent_text != "Unknown": 
+                    # 상위 노드와 하위 노드의 정제된 이름이 같으면 데이터 입력 오류로 간주하고 스킵
+                    if normalize_name(parent_text) != mare_pure_name:
+                        elite_sire_map[parent_text.strip()].append(mare_info)
             for child in node.findall('node'): traverse(child, my_text)
         traverse(root); return elite_sire_map, id_to_text, id_to_parent_text, None
     except Exception as e: return None, None, None, f"분석 오류: {str(e)}"
@@ -157,7 +160,7 @@ st.sidebar.markdown("### 🔍 검색 조건 설정")
 start_y, end_y = st.sidebar.slider("종빈마 출생 연도 필터", 1900, 2030, (1900, 2026))
 
 st.sidebar.markdown("---")
-# [추가된 부분] 씨수말 출생 연도 필터
+# 씨수말 출생 연도 필터
 sire_start_y, sire_end_y = st.sidebar.slider("씨수말 출생 연도 필터", 1900, 2030, (1900, 2026))
 
 st.sidebar.markdown("---")
@@ -168,7 +171,7 @@ st.sidebar.markdown("---")
 show_sire_bms = st.sidebar.checkbox("혈통상 모계 깊이(부마 BMS) 보기", value=False)
 
 st.sidebar.markdown("---")
-# [추가됨] 저평가 우량 BMS 필터 체크박스 추가
+# 저평가 우량 BMS 필터 체크박스 추가
 show_undervalued_bms = st.sidebar.checkbox("저평가 우량 BMS (Undervalued BMS)", value=False)
 if show_undervalued_bms:
     st.sidebar.caption("※ 부마로서 G1 우승 자마를 6두 이하로 배출했거나 없는(GX) 씨수말만 표시합니다.")
@@ -218,11 +221,11 @@ for sire, all_daughters in elite_map.items():
 
 # 데이터 가공 및 점수 계산 (메인 랭킹용)
 scored_results = []
-year_pattern = re.compile(r'(\d{4})') # [추가된 부분] 연도 추출용 정규식
+year_pattern = re.compile(r'(\d{4})') # 연도 추출용 정규식
 
 for sire, all_daughters in elite_map.items():
     
-    # [추가된 부분] 씨수말 텍스트에서 4자리 숫자(연도) 추출 및 필터링
+    # 씨수말 텍스트에서 4자리 숫자(연도) 추출 및 필터링
     sire_year_match = year_pattern.search(sire)
     sire_year = int(sire_year_match.group(1)) if sire_year_match else 0
     
@@ -230,7 +233,7 @@ for sire, all_daughters in elite_map.items():
     if sire_year > 0 and not (sire_start_y <= sire_year <= sire_end_y):
         continue
     
-    # --- [추가됨] 저평가 우량 BMS 필터 로직 ---
+    # --- 저평가 우량 BMS 필터 로직 ---
     if show_undervalued_bms:
         # 정규식을 이용해 띄어쓰기 무관하게 GX 또는 G X 패턴 찾기
         is_gx = bool(re.search(r'G\s*X', sire))
@@ -243,8 +246,6 @@ for sire, all_daughters in elite_map.items():
                 if int(g1_sire_match.group(1)) > 6:
                     continue
             else:
-                # GX도 없고 G1- 패턴도 없는 경우도 필터링에서 제외하고 싶다면 아래 주석 해제. 
-                # (현재는 명확히 G1-x 나 GX 가 있는 경우만 타겟팅하기 위해 제외 처리합니다)
                 continue 
     # ---------------------------------------------
 
