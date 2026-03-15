@@ -157,6 +157,10 @@ st.sidebar.markdown("### 🔍 검색 조건 설정")
 start_y, end_y = st.sidebar.slider("종빈마 출생 연도 필터", 1900, 2030, (1900, 2026))
 
 st.sidebar.markdown("---")
+# [추가된 부분] 씨수말 출생 연도 필터
+sire_start_y, sire_end_y = st.sidebar.slider("씨수말 출생 연도 필터", 1900, 2030, (1900, 2026))
+
+st.sidebar.markdown("---")
 min_score = st.sidebar.slider("현구간 최소 점수 필터", 0.0, 30.0, 3.0, 0.5)
 
 st.sidebar.markdown("---")
@@ -214,7 +218,17 @@ for sire, all_daughters in elite_map.items():
 
 # 데이터 가공 및 점수 계산 (메인 랭킹용)
 scored_results = []
+year_pattern = re.compile(r'(\d{4})') # [추가된 부분] 연도 추출용 정규식
+
 for sire, all_daughters in elite_map.items():
+    
+    # [추가된 부분] 씨수말 텍스트에서 4자리 숫자(연도) 추출 및 필터링
+    sire_year_match = year_pattern.search(sire)
+    sire_year = int(sire_year_match.group(1)) if sire_year_match else 0
+    
+    # 추출된 연도가 사용자가 설정한 범위를 벗어나면 해당 씨수말 스킵
+    if sire_year > 0 and not (sire_start_y <= sire_year <= sire_end_y):
+        continue
     
     # --- [추가됨] 저평가 우량 BMS 필터 로직 ---
     if show_undervalued_bms:
@@ -336,4 +350,4 @@ else:
                             else: 
                                 father_display = f"<b>{father_name}</b>{bms_depth_text}"
                         
-                        st.markdown(f"<div class='progeny-item'>🔗 [연결] {child_display} ({father_display})</div>", unsafe_allow_html=True)
+                        st.markdown(f"<div class='progeny-item'>🔗 [연결] {child_display} ({father_display})</div>", unsafe_allow_html=True) 
