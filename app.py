@@ -183,7 +183,6 @@ def calculate_score(daughters_list):
     n1 = len(daughters_list)
     s2 = 0
     n2 = 0
-    productive_k = set()
     
     for d in daughters_list:
         for p_id in d['progeny_ids']:
@@ -197,13 +196,11 @@ def calculate_score(daughters_list):
             
             if is_n2:
                 n2 += 1
-                productive_k.add(d['name'])
             if is_s2:
                 s2 += 1
-                productive_k.add(d['name'])
                 
-    k = len(productive_k)
-    score = (1.0 * n1) + (1.5 * s2) + (2.0 * n2) + (1.0 * k)
+    # 변경된 10점 체계 및 결합가중치(k) 완전 삭제 적용
+    score = (10.0 * n1) + (15.0 * s2) + (20.0 * n2)
     return score
 
 # 전체 씨수말의 BMS 점수 사전(Dictionary) 미리 생성
